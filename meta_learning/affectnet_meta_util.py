@@ -369,9 +369,13 @@ def evaluate(model, data_loader, device):
         f1 = metrics.f1_score(y, y_pred, average = 'macro')
 
         # fairness metrics
-        dem_parity_ratio = demographic_parity_ratio(y, y_pred, race_labs)
-        equal_odds_ratio = equalized_odds_ratio(y, y_pred, race_labs)
-
+        dem_parity_ratio = demographic_parity_ratio(y_true = y, 
+                                                    y_pred = y_pred, 
+                                                    sensitive_features = race_labs)
+        equal_odds_ratio = equalized_odds_ratio(y_true = y, 
+                                                y_pred = y_pred, 
+                                                sensitive_features = race_labs)
+        
     model.train()
 
     results_list = [("NLL", nll_meter.avg),
