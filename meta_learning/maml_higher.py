@@ -117,7 +117,7 @@ class MAML:
 
           if self._weight_scheme == 'global':
             logits = self._model_ft(images_full)
-            loss = F.cross_entropy(logits, labels_full, weight=weights['global'], reduction = 'mean')
+            loss = F.cross_entropy(logits, labels_full, weight=train_weights['global'], reduction = 'mean')
             loss.backward()
             _, _, acc = affectnet_meta_util.acc_score(logits, labels_full)
 
@@ -130,7 +130,7 @@ class MAML:
             task_acc = []
             for idx, (image_batch, label_batch) in enumerate(zip(torch.split(images_full, batch_size, dim = 0), torch.split(labels_full, batch_size))):
                 logits = self._model_ft(image_batch)
-                loss = F.cross_entropy(logits, label_batch, weight=weights['race_specific'][idx], reduction= 'mean')
+                loss = F.cross_entropy(logits, label_batch, weight=train_weights['race_specific'][idx], reduction= 'mean')
                 
                 # backprop the loss
                 loss.backward()
