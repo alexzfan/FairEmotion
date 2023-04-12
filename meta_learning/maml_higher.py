@@ -210,11 +210,6 @@ class MAML:
                     results["Dem Parity Ratio"],
                     i_step
                 )
-                writer.add_scalar(
-                    'val/equal_odds_ratio',
-                    results["Equalized Odds Ratio"],
-                    i_step
-                )
 
             if i_step % SAVE_INTERVAL == 0:
                 self._save(i_step)

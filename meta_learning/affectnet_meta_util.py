@@ -372,17 +372,12 @@ def evaluate(model, data_loader, device):
         dem_parity_ratio = demographic_parity_ratio(y_true = y, 
                                                     y_pred = y_pred, 
                                                     sensitive_features = race_labs)
-        equal_odds_ratio = equalized_odds_ratio(y_true = y, 
-                                                y_pred = y_pred, 
-                                                sensitive_features = race_labs)
-        
     model.train()
 
     results_list = [("NLL", nll_meter.avg),
                     ("Acc", acc),
                     ("F1 Score", f1),
-                    ("Dem Parity Ratio", dem_parity_ratio),
-                    ("Equalized Odds Ratio", equal_odds_ratio),]
+                    ("Dem Parity Ratio", dem_parity_ratio),]
     results = OrderedDict(results_list)
     return results, pred_dict
 
