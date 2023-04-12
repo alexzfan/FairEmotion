@@ -20,6 +20,7 @@ import sys
 from PIL import Image
 from collections import OrderedDict
 from sklearn import metrics
+from fairlearn.metrics import demographic_parity_ratio, equalized_odds_ratio
 
 NUM_TRAIN_CLASSES = 64
 NUM_VAL_CLASSES = 16
@@ -83,8 +84,28 @@ class AffectNetMetaDataset(dataset.Dataset):
         self.weight_dict = {}
         for idx, race in self._task_idx.items():
             temp_filter = self._data.loc[self._data['race'] == race, :]
-            self.weight_dict[idx] = torch.tensor(compute_class_weight(class_weight='balanced', classes= np.unique(temp_filter.label), y= np.array(temp_filter.label)), dtype=torch.float).to(DEVICE) #? should we drop the .cpu() here?
-        self.total_weight = torch.tensor(compute_class_weight(class_weight='balanced', classes= np.unique(self._data.label), y= np.array(self._data.label)), dtype=torch.float).to(DEVICE)
+            self.weight_dict[idx] = torch.tensor(
+                compute_class_weight(
+                    class_weight='balanced', 
+                    classes= np.unique(temp_filter.label), 
+                    y= np.array(temp_filter.label)
+                    ), 
+                dtype=torch.float
+            ).to(DEVICE) #? should we drop the .cpu() here?
+
+        self.total_weight = torch.tensor(
+            compute_class_weight(
+                class_weight='balanced', 
+                classes= np.unique(self._data.label), 
+                y= np.array(self._data.label)
+                ), 
+            dtype=torch.float
+        ).to(DEVICE)
+
+        self.weights = {
+            "global": self.total_weight,
+            "race_specific": self.weight_dict
+        }
 
     def __getitem__(self, class_idxs):
         """Constructs a task.
@@ -309,6 +330,7 @@ def evaluate(model, data_loader, device):
     pred_dict = {} # id, prob and prediction
     full_labels = []
     predictions = []
+    race_labs = data_loader.dataset.data['race']
 
     acc = 0
     num_corrects, num_samples = 0, 0
@@ -346,11 +368,17 @@ def evaluate(model, data_loader, device):
         y = np.asarray([label.cpu() for label in full_labels]).astype(int)
         f1 = metrics.f1_score(y, y_pred, average = 'macro')
 
+        # fairness metrics
+        dem_parity_ratio = demographic_parity_ratio(y, y_pred, race_labs)
+        equal_odds_ratio = equalized_odds_ratio(y, y_pred, race_labs)
+
     model.train()
 
     results_list = [("NLL", nll_meter.avg),
                     ("Acc", acc),
-                    ("F1 Score", f1)]
+                    ("F1 Score", f1),
+                    ("Dem Parity Ratio", dem_parity_ratio),
+                    ("Equalized Odds Ratio", equal_odds_ratio),]
     results = OrderedDict(results_list)
     return results, pred_dict
 

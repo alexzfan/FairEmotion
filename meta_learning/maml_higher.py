@@ -44,7 +44,8 @@ class MAML:
             num_outputs,
             outer_lr,
             l2_wd,
-            log_dir
+            log_dir,
+            weight_scheme = "global"
     ):
         """Inits MAML.
 
@@ -90,6 +91,7 @@ class MAML:
         os.makedirs(self._log_dir, exist_ok=True)
 
         self._start_train_step = 0
+        self._weight_scheme = weight_scheme
 
     def _outer_step(self, task_batch, train_weights, train, step=None):
         """Computes the MAML loss and metrics on a batch of tasks.
@@ -113,32 +115,33 @@ class MAML:
           images_full = images_full.to(DEVICE)
           labels_full = labels_full.to(DEVICE)
 
-          logits = self._model_ft(images_full)
-          loss = F.cross_entropy(logits, labels_full, weight=train_weights, reduction = 'mean')
-          loss.backward()
-          _, _, acc = affectnet_meta_util.acc_score(logits, labels_full)
+          if self._weight_scheme == 'global':
+            logits = self._model_ft(images_full)
+            loss = F.cross_entropy(logits, labels_full, weight=weights['global'], reduction = 'mean')
+            loss.backward()
+            _, _, acc = affectnet_meta_util.acc_score(logits, labels_full)
 
-          loss_batch.append(loss.item())
-          accuracy_batch.append(acc)
+            loss_batch.append(loss.item())
+            accuracy_batch.append(acc)
+          elif self._weight_scheme == 'race_specific':
+            batch_size = images_full.shape[0] // 7
 
-        #   batch_size = images_full.shape[0] // 7
+            task_loss = []
+            task_acc = []
+            for idx, (image_batch, label_batch) in enumerate(zip(torch.split(images_full, batch_size, dim = 0), torch.split(labels_full, batch_size))):
+                logits = self._model_ft(image_batch)
+                loss = F.cross_entropy(logits, label_batch, weight=weights['race_specific'][idx], reduction= 'mean')
+                
+                # backprop the loss
+                loss.backward()
+                _, _, acc = affectnet_meta_util.acc_score(logits, label_batch)
 
-        #   task_loss = []
-        #   task_acc = []
-        #   for idx, (image_batch, label_batch) in enumerate(zip(torch.split(images_full, batch_size, dim = 0), torch.split(labels_full, batch_size))):
-        #       logits = self._model_ft(image_batch)
-        #       loss = F.cross_entropy(logits, label_batch, weight=train_weights[idx], reduction= 'mean')
-              
-        #       # backprop the loss
-        #       loss.backward()
-        #       _, _, acc = affectnet_meta_util.acc_score(logits, label_batch)
+                # append accs
+                task_loss.append(loss.item())
+                task_acc.append(acc)
 
-        #       # append accs
-        #       task_loss.append(loss.item())
-        #       task_acc.append(acc)
-
-        #   loss_batch.append(np.mean(task_loss))
-        #   accuracy_batch.append(np.mean(task_acc))
+            loss_batch.append(np.mean(task_loss))
+            accuracy_batch.append(np.mean(task_acc))
 
         loss_full = np.mean(loss_batch)
         acc_full = np.mean(accuracy_batch)
@@ -164,7 +167,7 @@ class MAML:
         ):
             self._optimizer.zero_grad()
             outer_loss, accuracy_query = (
-                self._outer_step(task_batch, train_weights = dataloader_train.dataset.total_weight, train=True, step=i_step)
+                self._outer_step(task_batch, train_weights = dataloader_train.dataset.weights, train=True, step=i_step)
             )
 
             self._optimizer.step()
@@ -200,6 +203,16 @@ class MAML:
                 writer.add_scalar(
                     'val/f1',
                     results["F1 Score"],
+                    i_step
+                )
+                writer.add_scalar(
+                    'val/dem_parity_ratio',
+                    results["Dem Parity Ratio"],
+                    i_step
+                )
+                writer.add_scalar(
+                    'val/equal_odds_ratio',
+                    results["Equalized Odds Ratio"],
                     i_step
                 )
 
@@ -291,7 +304,8 @@ def main(args):
       num_outputs = 7,
       outer_lr = args.outer_lr,
       l2_wd = args.l2_wd,
-      log_dir = log_dir
+      log_dir = log_dir,
+      weight_scheme = args.weight_scheme
     )
 
     if args.checkpoint_step > -1:
@@ -332,7 +346,7 @@ def main(args):
             log
         )
     else:
-        raise NotImplementedError("Test Code Not Implemented Yet")
+        raise NotImplementedError("Test via CAFE")
         # print(
         #     f'Testing on tasks with composition '
         #     f'num_way={args.num_way}, '
@@ -380,6 +394,8 @@ if __name__ == '__main__':
     parser.add_argument("--val_csv", type = str, default="./affectnet_val_filepath_full.csv")
     parser.add_argument("--dataset", type = str, default="affectnet",
                         choices = ['affectnet'])
+    parser.add_argument("--weight_scheme", type = str, default="global",
+                        choices = ['global', 'race_specific'])
     parser.add_argument('--learn_inner_lrs', default=False, action='store_true',
                         help='whether to optimize inner-loop learning rates')
     parser.add_argument('--outer_lr', type=float, default=0.0001,
