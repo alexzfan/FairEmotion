@@ -227,10 +227,12 @@ class AffectNetCSVDataset(dataset.Dataset):
 
         label = self.data.loc[index, "label"]
         image_num = self.data.loc[index, 'image_num']
+        race = self.data.loc[index, 'race']
         example = (
             image_num,
             image,
-            label
+            label,
+            race
         )
 
         return example
@@ -331,12 +333,13 @@ def evaluate(model, data_loader, device):
     full_labels = []
     predictions = []
     race_labs = data_loader.dataset.data['race']
+    test = []
 
     acc = 0
     num_corrects, num_samples = 0, 0
 
     with torch.no_grad():
-        for img_id, x, y in data_loader:
+        for img_id, x, y, race in data_loader:
             # forward pass here
             x = x.float().to(device)
 
@@ -359,6 +362,7 @@ def evaluate(model, data_loader, device):
             num_samples += preds.size(0)
             predictions.extend(preds)
             full_labels.extend(y)
+            test.extend([r.cpu() for r in race])
 
 
         acc = float(num_corrects) / num_samples
@@ -372,6 +376,11 @@ def evaluate(model, data_loader, device):
         dem_parity_ratio = demographic_parity_ratio(y_true = y, 
                                                     y_pred = y_pred, 
                                                     sensitive_features = race_labs)
+        test_dem_parity_ratio = demographic_parity_ratio(y_true = y, 
+                                                    y_pred = y_pred, 
+                                                    sensitive_features = test)
+
+        assert(dem_parity_ratio == test_dem_parity_ratio)
     model.train()
 
     results_list = [("NLL", nll_meter.avg),
