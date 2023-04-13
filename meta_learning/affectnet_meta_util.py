@@ -362,7 +362,7 @@ def evaluate(model, data_loader, device):
             num_samples += preds.size(0)
             predictions.extend(preds)
             full_labels.extend(y)
-            test.extend([r.cpu() for r in race])
+            test.extend(race)
 
 
         acc = float(num_corrects) / num_samples
