@@ -1,14 +1,24 @@
 import numpy as np
 import pandas as pd
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms import Compose, ToTensor, Resize, Normalize, ColorJitter, RandomHorizontalFlip
 from PIL import Image
 
+TRANSFORM = Compose([
+                ToTensor(),
+                Resize((224,224)),
+                Normalize(
+                    mean=(0.485, 0.456, 0.406),
+                    std=(0.229, 0.224, 0.225)
+                )
+            ]
+        )
 
 class AdversarialDataset(Dataset):
-    def __init__(self, batch_size, data_file, transform = None):
+    def __init__(self, batch_size, data_file, transform = TRANSFORM):
         super().__init__()
         # read data file
-        self._data = data_file
+        self._data = pd.read_csv(data_file)
         self._task_idx = dict()
         for i, race in enumerate(np.unique(self._data.race)):
             self._task_idx[i] = race
@@ -34,3 +44,16 @@ class AdversarialDataset(Dataset):
             labels.extend(label)
 
         return images, labels
+
+def get_adversary_dataloader(data_csv, split, batch_size, task_batch_size):
+    if split == "train":
+        dataset = AdversarialDataset(batch_size, data_csv)
+        return DataLoader(dataset, batch_size = task_batch_size)
+
+    elif split == "val":
+        dataset = AdversarialDataset(batch_size, data_csv)
+        return DataLoader(dataset, batch_size = task_batch_size, shuffle = False)
+
+    elif split == "test":
+        dataset = AdversarialDataset(batch_size, data_csv)
+        return DataLoader(dataset, batch_size = task_batch_size, shuffle = False)
