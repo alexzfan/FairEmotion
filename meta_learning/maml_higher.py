@@ -112,10 +112,10 @@ class MAML:
         accuracy_batch = []
         for task in task_batch:
           images_full, labels_full = task
-          images_full = images_full.to(DEVICE)
-          labels_full = labels_full.to(DEVICE)
 
           if self._weight_scheme == 'global':
+            images_full = images_full.to(DEVICE)
+            labels_full = labels_full.to(DEVICE)
             logits = self._model_ft(images_full)
             loss = F.cross_entropy(logits, labels_full, weight=train_weights['global'], reduction = 'mean')
             loss.backward()
@@ -129,6 +129,8 @@ class MAML:
             task_loss = []
             task_acc = []
             for idx, (image_batch, label_batch) in enumerate(zip(torch.split(images_full, batch_size, dim = 0), torch.split(labels_full, batch_size))):
+                image_batch = image_batch.to(DEVICE)
+                label_batch = label_batch.to(DEVICE)
                 logits = self._model_ft(image_batch)
                 loss = F.cross_entropy(logits, label_batch, weight=train_weights['race_specific'][idx], reduction= 'mean')
                 

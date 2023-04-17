@@ -12,6 +12,7 @@ import torch.optim.lr_scheduler as sched
 import torch.utils.data as data
 from torch.utils.data.sampler import SubsetRandomSampler
 import util
+import wandb
 
 from args import get_train_args
 from models import baseline_pretrain
@@ -30,7 +31,14 @@ def main(args):
     # set up logger and devices
     args.save_dir = util.get_save_dir(args.save_dir, args.name, training = True)
     log = util.get_logger(args.save_dir, args.name)
+    
+
+    wandb_name = args.save_dir.split('/')[-1]
+    if args.test:
+        wandb_name = 'eval_' + wandb_name
+    wandb.init(project = 'test-project', entity = 'fairemotion', config = args, name = wandb_name, sync_tensorboard = True)
     tbx = SummaryWriter(args.save_dir)
+    
     device, args.gpu_ids = util.get_available_devices()
 
     # dump the args info
