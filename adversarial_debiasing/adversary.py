@@ -10,6 +10,7 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 HIDDEN_SIZE = 64
 NUM_EPOCHS = 10
 LEARNING_RATE = 0.001
+ALPHA = 1.0
 
 
 class baseline_classifier(nn.Module):
@@ -31,12 +32,10 @@ class adversary_classifier(nn.Module):
         super(adversary_classifier, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, num_classes)
-        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
-        x = self.softmax(x)
         return x
 
 
@@ -50,15 +49,31 @@ def classifier_train(classifier, adversary,
         for batch_idx, (data, label, group) in enumerate(train_loader):
             data, label, group = data.to(device), label.to(device), group.to(device)
             optimizer_cls.zero_grad()
+            optimizer_adv.zero_grad()
+
             preds = classifier(data)
             loss_cls = F.cross_entropy(preds, label)
             loss_cls.backward()
-            optimizer_cls.step()
+            dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
+            optimizer_cls.zero_grad()
             optimizer_adv.zero_grad()
-            output_adv = adversary(label)
+
+            output_adv = adversary(preds)
             loss_adv = F.cross_entropy(output_adv, group)
             loss_adv.backward()
+
+            dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
+
+            for i, param in enumerate(classifier.parameters()):
+                # normalize dW_LA
+                unit_dW_LA = dW_LA[i] / torch.norm(dW_LA[i]) + torch.finfo(float).tiny
+                # draw projection
+                proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
+                # compute dW
+                param.grad = dW_LP[i] - (proj*unit_dW_LA) - (ALPHA*dW_LA[i])
+
+            optimizer_cls.step()
             optimizer_adv.step()
 
         classifier.eval()
