@@ -34,8 +34,6 @@ def main(args):
     
 
     wandb_name = args.save_dir.split('/')[-1]
-    if args.test:
-        wandb_name = 'eval_' + wandb_name
     wandb.init(project = 'test-project', entity = 'fairemotion', config = args, name = wandb_name, sync_tensorboard = True)
     tbx = SummaryWriter(args.save_dir)
 
