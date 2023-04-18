@@ -138,8 +138,8 @@ class AffectNetCSVDataset(data.Dataset):
         if self.train:
             std_image = transforms.Compose(
             [
-                transforms.ColorJitter(brightness=0.5, hue = 0.3),
-                transforms.RandomHorizontalFlip(),
+                # transforms.ColorJitter(brightness=0.5, hue = 0.3),
+                # transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=(0.485, 0.456, 0.406), 
