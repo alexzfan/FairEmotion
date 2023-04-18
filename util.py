@@ -162,10 +162,12 @@ class AffectNetCSVDataset(data.Dataset):
 
         label = self.data.loc[index, "label"]
         image_num = self.data.loc[index, 'image_num']
+        race = self.data.loc[index, 'race']
         example = (
             image_num,
             image,
-            label
+            label,
+            race
         )
 
         return example

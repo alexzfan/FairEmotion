@@ -370,23 +370,39 @@ def evaluate(model, data_loader, device):
         # F1 Score
         y_pred = np.asarray([pred.cpu() for pred in predictions]).astype(int)
         y = np.asarray([label.cpu() for label in full_labels]).astype(int)
-        f1 = metrics.f1_score(y, y_pred, average = 'macro')
+        f1 = metrics.f1_score(y, y_pred, average = 'weighted')
 
-        # fairness metrics
-        dem_parity_ratio = demographic_parity_ratio(y_true = y, 
+        # dem parity ratio
+        fairlearn_dem_parity_ratio = demographic_parity_ratio(y_true = y, 
                                                     y_pred = y_pred, 
                                                     sensitive_features = race_labs)
-        test_dem_parity_ratio = demographic_parity_ratio(y_true = y, 
-                                                    y_pred = y_pred, 
-                                                    sensitive_features = test)
 
-        assert(dem_parity_ratio == test_dem_parity_ratio)
+        # weighted OVO fairness metrics
+        truth_sample_size_weights = pd.Series(y).value_counts(normalize = True).sort_index().tolist()
+        assert(len(truth_sample_size_weights) == 7)
+
+        dem_parity_ratio = 0
+        eq_odds_ratio = 0
+        for i, weight in enumerate(truth_sample_size_weights):
+            y_true_converted = [1 if j == i else 0 for j in y]
+            y_pred_converted = [1 if j == i else 0 for j in y_pred]
+            dem_parity_ratio += weight*demographic_parity_ratio(y_true = y_true_converted, 
+                                            y_pred = y_pred_converted,
+                                            sensitive_features = race_labs
+                                            )
+            eq_odds_ratio += weight*equalized_odds_ratio(y_true = y_true_converted,
+                                                        y_pred = y_pred_converted,
+                                                        sensitive_features = race_labs,
+                                                        )
+        
     model.train()
 
     results_list = [("NLL", nll_meter.avg),
                     ("Acc", acc),
                     ("F1 Score", f1),
-                    ("Dem Parity Ratio", dem_parity_ratio),]
+                    ("FL Dem Parity Ratio", fairlearn_dem_parity_ratio),
+                    ("OVO Dem Parity Ratio", dem_parity_ratio),
+                    ("OVO Eq Odds Ratio", eq_odds_ratio),]
     results = OrderedDict(results_list)
     return results, pred_dict
 

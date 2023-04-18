@@ -47,27 +47,18 @@ class MAML:
             log_dir,
             weight_scheme = "global"
     ):
-        """Inits MAML.
+        """Inits race-based reweighting in a MAML-like structure.
 
-        The network consists of four convolutional blocks followed by a linear
-        head layer. Each convolutional block comprises a convolution layer, a
-        batch normalization layer, and ReLU activation.
-
-        Note that unlike conventional use, batch normalization is always done
-        with batch statistics, regardless of whether we are training or
-        evaluating. This technically makes meta-learning transductive, as
-        opposed to inductive.
+        The main model is a resnet50 pretrained model that we finetune
 
         Args:
+            num_input_channels (int): C in [B, C, H, W]
             num_outputs (int): dimensionality of output, i.e. number of classes
                 in a task
-            num_inner_steps (int): number of inner-loop optimization steps
-            inner_lr (float): learning rate for inner-loop optimization
-                If learn_inner_lrs=True, inner_lr serves as the initialization
-                of the learning rates.
-            learn_inner_lrs (bool): whether to learn the above
-            outer_lr (float): learning rate for outer-loop optimization
+            outer_lr (float): learning rate of the model
+            l2_wd (float): l2 weight decay for the optimizer
             log_dir (str): path to logging directory
+            weight_scheme (str): change between global label reweighting vs race-specific
         """
         self._num_input_channels = num_input_channels
 

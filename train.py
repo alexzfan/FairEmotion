@@ -38,7 +38,7 @@ def main(args):
         wandb_name = 'eval_' + wandb_name
     wandb.init(project = 'test-project', entity = 'fairemotion', config = args, name = wandb_name, sync_tensorboard = True)
     tbx = SummaryWriter(args.save_dir)
-    
+
     device, args.gpu_ids = util.get_available_devices()
 
     # dump the args info
@@ -55,7 +55,6 @@ def main(args):
     # Get Model
     log.info("Making model....")
     if(args.model_type == "baseline"):
-        # model = baseline_ff(hidden_size=args.hidden_size, drop_prob = args.drop_prob)
         model = baseline_pretrain(7)
     else:
         raise Exception("Model provided not valid")
@@ -96,28 +95,6 @@ def main(args):
     # load in data
     log.info("Building dataset....")
     if(args.dataset == "affectnet"):
-        train_dataset = AffectNetDataset(args.train_dir, train = True, balance = False)
-        train_loader = data.DataLoader(train_dataset,
-                                    batch_size=args.batch_size,
-                                    shuffle=True,
-                                    num_workers=args.num_workers)
-        dev_dataset = AffectNetDataset(args.val_dir, train = False, balance = False)
-        dev_loader = data.DataLoader(dev_dataset,
-                                    batch_size=args.batch_size,
-                                    shuffle=False,
-                                    num_workers=args.num_workers)
-    elif(args.dataset == "cafe"):
-        train_dataset = CAFEDataset(args.cafe_train_csv, train = True, balance = False)
-        train_loader = data.DataLoader(train_dataset,
-                                    batch_size=args.batch_size,
-                                    shuffle=True,
-                                    num_workers=args.num_workers)
-        dev_dataset = CAFEDataset(args.cafe_val_csv, train = False, balance = False)
-        dev_loader = data.DataLoader(dev_dataset,
-                                    batch_size=args.batch_size,
-                                    shuffle=False,
-                                    num_workers=args.num_workers)
-    elif(args.dataset == "affectnet_base_minor_aug"):
         train_dataset = AffectNetCSVDataset(args.train_csv, train = False, balance = False)
         train_loader = data.DataLoader(train_dataset,
                                     batch_size=args.batch_size,
@@ -128,6 +105,18 @@ def main(args):
                                     batch_size=args.batch_size,
                                     shuffle=False,
                                     num_workers=args.num_workers)
+    elif(args.dataset == "cafe"):
+        raise Exception("do not finetune on cafe")
+        # train_dataset = CAFEDataset(args.cafe_train_csv, train = True, balance = False)
+        # train_loader = data.DataLoader(train_dataset,
+        #                             batch_size=args.batch_size,
+        #                             shuffle=True,
+        #                             num_workers=args.num_workers)
+        # dev_dataset = CAFEDataset(args.cafe_val_csv, train = False, balance = False)
+        # dev_loader = data.DataLoader(dev_dataset,
+        #                             batch_size=args.batch_size,
+        #                             shuffle=False,
+        #                             num_workers=args.num_workers)
     else:
         raise Exception("Dataset provided not valid")
     # Start training
@@ -146,7 +135,7 @@ def main(args):
         log.info(f'Starting epoch {epoch}....')
         with torch.enable_grad(), \
             tqdm(total=len(train_loader.dataset)) as progress_bar:
-            for img_id, x, y in train_loader:
+            for img_id, x, y, race in train_loader:
                 # forward pass here
                 x = x.float().to(device)
 
@@ -207,16 +196,17 @@ def evaluate(args, model, data_loader, device):
     pred_dict = {} # id, prob and prediction
     full_labels = []
     predictions = []
+    race_labs = data_loader.dataset.data['race']
+    test = []
 
     acc = 0
     num_corrects, num_samples = 0, 0
 
     with torch.no_grad(), \
         tqdm(total=len(data_loader.dataset)) as progress_bar:
-        for img_id, x, y in data_loader:
+        for img_id, x, y, race in data_loader:
             # forward pass here
             x = x.float().to(device)
-            # text = text.to(device)
 
             batch_size = args.batch_size
 
@@ -240,6 +230,8 @@ def evaluate(args, model, data_loader, device):
             num_samples += preds.size(0)
             predictions.extend(preds)
             full_labels.extend(y)
+            test.extend(race)
+
 
 
         acc = float(num_corrects) / num_samples
@@ -247,13 +239,40 @@ def evaluate(args, model, data_loader, device):
         # F1 Score
         y_pred = np.asarray([pred.cpu() for pred in predictions]).astype(int)
         y = np.asarray([label.cpu() for label in full_labels]).astype(int)
-        f1 = metrics.f1_score(y, y_pred, average = 'macro')
+        f1 = metrics.f1_score(y, y_pred, average = 'weighted')
+
+        # dem parity ratio
+        fairlearn_dem_parity_ratio = demographic_parity_ratio(y_true = y, 
+                                                    y_pred = y_pred, 
+                                                    sensitive_features = race_labs)
+
+        # weighted OVO fairness metrics
+        truth_sample_size_weights = pd.Series(y).value_counts(normalize = True).sort_index().tolist()
+        assert(len(truth_sample_size_weights) == 7)
+
+        dem_parity_ratio = 0
+        eq_odds_ratio = 0
+        for i, weight in enumerate(truth_sample_size_weights):
+            y_true_converted = [1 if j == i else 0 for j in y]
+            y_pred_converted = [1 if j == i else 0 for j in y_pred]
+            dem_parity_ratio += weight*demographic_parity_ratio(y_true = y_true_converted, 
+                                            y_pred = y_pred_converted,
+                                            sensitive_features = race_labs
+                                            )
+            eq_odds_ratio += weight*equalized_odds_ratio(y_true = y_true_converted,
+                                                        y_pred = y_pred_converted,
+                                                        sensitive_features = race_labs,
+                                                        )
+        
 
     model.train()
 
     results_list = [("NLL", nll_meter.avg),
                     ("Acc", acc),
-                    ("F1 Score", f1)]
+                    ("F1 Score", f1),
+                    ("FL Dem Parity Ratio", fairlearn_dem_parity_ratio),
+                    ("OVO Dem Parity Ratio", dem_parity_ratio),
+                    ("OVO Eq Odds Ratio", eq_odds_ratio),]
     results = OrderedDict(results_list)
 
     return results, pred_dict
