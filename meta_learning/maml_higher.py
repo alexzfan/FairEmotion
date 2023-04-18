@@ -199,11 +199,20 @@ class MAML:
                     i_step
                 )
                 writer.add_scalar(
-                    'val/dem_parity_ratio',
-                    results["Dem Parity Ratio"],
+                    'val/FL_dem_parity_ratio',
+                    results["FL Dem Parity Ratio"],
                     i_step
                 )
-
+                writer.add_scalar(
+                    'val/weighted_ovo_dem_parity_ratio',
+                    results["OVO Dem Parity Ratio"],
+                    i_step
+                )
+                writer.add_scalar(
+                    'val/weighted_ovo_eq_odds_ratio',
+                    results["OVO Eq Odds Ratio"],
+                    i_step
+                )
             if i_step % SAVE_INTERVAL == 0:
                 self._save(i_step)
 
