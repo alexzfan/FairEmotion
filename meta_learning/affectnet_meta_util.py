@@ -383,9 +383,13 @@ def evaluate(model, data_loader, device):
 
         dem_parity_ratio = 0
         eq_odds_ratio = 0
+        print(y)
+        print(y_pred)
         for i, weight in enumerate(truth_sample_size_weights):
             y_true_converted = [1 if j == i else 0 for j in y]
             y_pred_converted = [1 if j == i else 0 for j in y_pred]
+            print("y_true_converted", y_true_converted)
+            print("y_pred_converted", y_pred_converted)
             dem_parity_ratio += weight*demographic_parity_ratio(y_true = y_true_converted, 
                                             y_pred = y_pred_converted,
                                             sensitive_features = race_labs
