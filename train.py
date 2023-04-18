@@ -19,6 +19,7 @@ from models import baseline_pretrain
 from util import AffectNetDataset, AffectNetCSVDataset, CAFEDataset
 from collections import OrderedDict
 from sklearn import metrics
+from fairlearn.metrics import demographic_parity_ratio, equalized_odds_ratio
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 from json import dumps
