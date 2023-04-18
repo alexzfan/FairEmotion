@@ -179,8 +179,7 @@ class MAML:
                     i_step
                 )
 
-            if i_step % VAL_INTERVAL == 0:
-
+            if i_step % VAL_INTERVAL == 0 and i_step != 0:
                 log.info(f'Evaluating at step {i_step}...')
                 results, pred_dict = affectnet_meta_util.evaluate(self._model_ft, dataloader_val, DEVICE)
                 
