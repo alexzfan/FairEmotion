@@ -7,6 +7,7 @@ from sklearn.utils.class_weight import compute_class_weight
 
 import logging
 import os
+import tqdm
 
 TRANSFORM = Compose([
                 ToTensor(),
