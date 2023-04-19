@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch.utils import tensorboard
 import wandb
 
-from adversarial_dataset import get_adversary_dataloader, evaluate
+from adversarial_dataset import get_adversary_dataloader, evaluate, get_logger
 
 import argparse
 import os
@@ -100,6 +100,7 @@ def classifier_train(classifier, adversary,
                     num_epochs,
                     step, eval_step,
                     writer, log_dir, # tensorboard
+                    log,
                     device = DEVICE):
 
     steps_till_eval = eval_step
@@ -221,6 +222,8 @@ def main(args):
     wandb.init(project="test-project", entity="fairemotion", config=args, name=wandb_name, sync_tensorboard=True)
     writer = tensorboard.SummaryWriter(log_dir=log_dir)
 
+    log = get_logger(log_dir, "logger_name")
+    log.info(f'Args: {dumps(vars(args), indent=4, sort_keys=True)}')
     # make the classifiers
     predictor = baseline_classifier(num_classes = 7)
     adversary = adversary_classifier(input_size = 7, 
@@ -269,7 +272,8 @@ def main(args):
                         step = step, 
                         eval_step = args.eval_step,
                         writer = writer, 
-                        log_dir = log_dir)
+                        log_dir = log_dir,
+                        log = log)
 
 
 if __name__=='__main__':
