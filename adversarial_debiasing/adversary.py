@@ -133,11 +133,11 @@ def classifier_train(classifier, adversary,
 
                 # get dW_LP
                 # dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
-                dW_LP = autograd.grad(
-                    outputs = loss_cls,
-                    inputs = classifier.parameters(),
-                    retain_graph = True
-                )
+                # dW_LP = autograd.grad(
+                #     outputs = loss_cls,
+                #     inputs = classifier.parameters(),
+                #     retain_graph = True
+                # )
 
                 optimizer_cls.zero_grad()
                 optimizer_adv.zero_grad()
@@ -151,7 +151,12 @@ def classifier_train(classifier, adversary,
                 # loss_adv.backward(retain_graph=True)
                 # dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
-                for i, param in enumerate(classifier.parameters()):
+                for param in classifier.parameters():
+                    dW_LP_param = autograd.grad(
+                        outputs = loss_cls,
+                        inputs = param,
+                        retain_graph = True
+                    )[0]
                     dW_LA_param = autograd.grad(
                         outputs = loss_adv,
                         inputs = param,
@@ -160,9 +165,9 @@ def classifier_train(classifier, adversary,
                     # normalize dW_LA
                     unit_dW_LA = dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)
                     # draw projection
-                    proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
+                    proj = torch.sum(torch.inner(unit_dW_LA, dW_LP_param))
                     # compute dW
-                    param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA_param)
+                    param.grad = dW_LP_param - (proj*unit_dW_LA) - (adv_alpha*dW_LA_param)
 
                     # param.grad = dW_LP[i] - torch.sum(torch.inner(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny), dW_LP[i]))*(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA_param)
 
