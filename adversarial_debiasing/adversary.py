@@ -300,6 +300,7 @@ if __name__=='__main__':
                               'training, or for evaluation (-1 is ignored)'))
     parser.add_argument('--test', default=False, action = 'store_true',
                         help='Test on CAFE')
-    
+    parser.add_argument('--num_epochs', type=int, default=20,
+                        help='number epochs')    
     main_args = parser.parse_args()
     main(main_args)     
