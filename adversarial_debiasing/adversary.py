@@ -148,7 +148,7 @@ def classifier_train(classifier, adversary,
                 adv_loss_val = loss_adv.item()
 
                 # backward and obtain dW_LA
-                loss_adv.backward()
+                loss_adv.backward(retain_graph=True)
                 # dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
                 for i, param in enumerate(classifier.parameters()):
