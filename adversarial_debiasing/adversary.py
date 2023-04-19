@@ -169,14 +169,9 @@ def classifier_train(classifier, adversary,
 
                 for i, param in enumerate(classifier.parameters()):
                     # normalize dW_LA
-                    print("param.grad shape: ", param.grad.shape)
-                    unit_dW_LA = dW_LA[i] / (torch.norm(dW_LA[i]))
+                    unit_dW_LA = dW_LA[i] / (torch.norm(dW_LA[i]) +torch.finfo(float).tiny)
                     # draw projection
-                    print("unit_dW_LA shape: ",unit_dW_LA.shape)
-                    print(unit_dW_LA)
-                    print("dW_LP[i] shape: ",dW_LP[i].shape)
-                    print(dW_LP[i])
-                    proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
+                    proj = torch.sum(torch.mul(unit_dW_LA, dW_LP[i]))
                     # compute dW
                     param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])
                     handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
