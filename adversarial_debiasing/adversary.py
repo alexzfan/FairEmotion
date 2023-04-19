@@ -15,6 +15,7 @@ import os
 import sys
 import random
 import pdb
+import tqdm
 from json import dumps
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -115,73 +116,76 @@ def classifier_train(classifier, adversary,
 
         classifier.train()
         adversary.train()
-        for batch_idx, (image_num, data, label, group) in enumerate(train_loader):
-            data, label, group = data.to(device), label.to(device), group.to(device)
-            batch_size = data.shape[0]
+        with tqdm(total=len(train_loader.dataset)) as progress_bar:
+            for batch_idx, (image_num, data, label, group) in enumerate(train_loader):
+                data, label, group = data.to(device), label.to(device), group.to(device)
+                batch_size = data.shape[0]
 
-            # zero out optimizers
-            optimizer_cls.zero_grad()
-            optimizer_adv.zero_grad()
+                # zero out optimizers
+                optimizer_cls.zero_grad()
+                optimizer_adv.zero_grad()
 
-            # first predict emotion labels
-            preds = classifier(data)
-            loss_cls = F.cross_entropy(preds, label, weight = weights)
-            pred_loss_val = loss_cls.item()
+                # first predict emotion labels
+                preds = classifier(data)
+                loss_cls = F.cross_entropy(preds, label, weight = weights)
+                pred_loss_val = loss_cls.item()
 
-            # backward the predictor and get dW_LP
-            loss_cls.backward(retain_graph = True)
-            dW_LP = [torch.clone(p.grad.detach()).to('cpu') for p in classifier.parameters()]
+                # backward the predictor and get dW_LP
+                loss_cls.backward(retain_graph = True)
+                dW_LP = [torch.clone(p.grad.detach()).to('cpu') for p in classifier.parameters()]
 
-            optimizer_cls.zero_grad()
-            optimizer_adv.zero_grad()
+                optimizer_cls.zero_grad()
+                optimizer_adv.zero_grad()
 
-            # predict the adversary's race labels
-            output_adv = adversary(preds)
-            loss_adv = F.cross_entropy(output_adv, group)
-            adv_loss_val = loss_adv.item()
+                # predict the adversary's race labels
+                output_adv = adversary(preds)
+                loss_adv = F.cross_entropy(output_adv, group)
+                adv_loss_val = loss_adv.item()
 
-            # backward and obtain dW_LA
-            loss_adv.backward()
-            dW_LA = [torch.clone(p.grad.detach()).to('cpu') for p in classifier.parameters()]
+                # backward and obtain dW_LA
+                loss_adv.backward()
+                dW_LA = [torch.clone(p.grad.detach()).to('cpu') for p in classifier.parameters()]
 
-            for i, param in enumerate(classifier.parameters()):
-                # normalize dW_LA
-                unit_dW_LA = dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny)
-                # draw projection
-                proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
-                # compute dW
-                param.grad = (dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])).to(device)
+                for i, param in enumerate(classifier.parameters()):
+                    # normalize dW_LA
+                    unit_dW_LA = dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny)
+                    # draw projection
+                    proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
+                    # compute dW
+                    param.grad = (dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])).to(device)
 
-            optimizer_cls.step()
-            optimizer_adv.step()
+                optimizer_cls.step()
+                optimizer_adv.step()
 
-            # log train info
-            step += batch_size
-            writer.add_scalar("train/pred_loss",pred_loss_val, step)
-            writer.add_scalar("train/adv_loss", adv_loss_val, step)
+                # log train info
+                step += batch_size
+                writer.add_scalar("train/pred_loss",pred_loss_val, step)
+                writer.add_scalar("train/adv_loss", adv_loss_val, step)
+                progress_bar.update(batch_size)
+                progress_bar.set_postfix(epoch = epoch,
+                                         loss = pred_loss_val)
+                steps_till_eval -= batch_size
 
-            steps_till_eval -= batch_size
-
-            if steps_till_eval <= 0:
-                steps_till_eval = eval_step
+                if steps_till_eval <= 0:
+                    steps_till_eval = eval_step
+                    
+                    # evaluate using just predictor net
+                    results, pred_dict = evaluate(classifier, val_loader, device)
+                    results_str = ", ".join(f'{k}: {v:05.2f}' for k, v in results.items())
+                    log.info(f'Val {results_str}')
                 
-                # evaluate using just predictor net
-                results, pred_dict = evaluate(classifier, val_loader, device)
-                results_str = ", ".join(f'{k}: {v:05.2f}' for k, v in results.items())
-                log.info(f'Val {results_str}')
-            
-                for k, v in results.items():
-                    tbx.add_scalar(f'val/{k}', v, step)
+                    for k, v in results.items():
+                        tbx.add_scalar(f'val/{k}', v, step)
 
-                # save validation step
-                save(
-                    classifier,
-                    adversary,
-                    optimizer_cls,
-                    optimizer_adv,
-                    log_dir,
-                    step
-                )
+                    # save validation step
+                    save(
+                        classifier,
+                        adversary,
+                        optimizer_cls,
+                        optimizer_adv,
+                        log_dir,
+                        step
+                    )
 
 def test(classifier, adversary, test_loader, device = DEVICE):
     classifier.eval()
