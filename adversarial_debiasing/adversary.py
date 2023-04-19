@@ -252,13 +252,11 @@ def main(args):
     else:
         train_loader = get_adversary_dataloader(data_csv = args.train_csv,
                     split = 'train',
-                    batch_size = args.batch_size,
-                    task_batch_size = None)
+                    batch_size = args.batch_size)
 
         val_loader = get_adversary_dataloader(data_csv = args.val_csv,
                     split = 'val',
-                    batch_size = args.batch_size,
-                    task_batch_size = None)
+                    batch_size = args.batch_size)
 
         classifier_train(classifier = predictor, 
                         adversary = adversary,
