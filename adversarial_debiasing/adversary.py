@@ -150,7 +150,7 @@ def classifier_train(classifier, adversary,
                 # draw projection
                 proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
                 # compute dW
-                param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])
+                param.grad = (dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])).to(device)
 
             optimizer_cls.step()
             optimizer_adv.step()
