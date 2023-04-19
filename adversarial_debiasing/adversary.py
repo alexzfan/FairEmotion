@@ -154,7 +154,7 @@ def classifier_train(classifier, adversary,
                     # # compute dW
                     # param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])
 
-                    param.grad = dW_LP[i] - torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))*(dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA[i])
+                    param.grad = dW_LP[i] - torch.sum(torch.inner(dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny), dW_LP[i]))*(dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA[i])
 
                 optimizer_cls.step()
                 optimizer_adv.step()
