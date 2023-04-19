@@ -113,7 +113,7 @@ def acc_score(logits, labels):
     num_correct = torch.sum(corrects_bool).item()
     acc = torch.mean(corrects_bool).item()
     return preds, num_correct, 
-    
+
 class AverageMeter:
     """Keep track of average values over time.
     Adapted from:
@@ -146,7 +146,7 @@ def evaluate(model, data_loader, device):
     pred_dict = {} # id, prob and prediction
     full_labels = []
     predictions = []
-    race_labs = data_loader.dataset.data['race']
+    race_labs = data_loader.dataset._data['race']
     test = []
 
     acc = 0
