@@ -1,9 +1,15 @@
 import numpy as np
 import pandas as pd
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import Compose, ToTensor, Resize, Normalize, ColorJitter, RandomHorizontalFlip
 from PIL import Image
 from sklearn.utils.class_weight import compute_class_weight
+from sklearn import metrics
+from fairlearn.metrics import demographic_parity_ratio, equalized_odds_ratio
 
 import logging
 import os
