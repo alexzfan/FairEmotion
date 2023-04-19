@@ -152,17 +152,18 @@ def classifier_train(classifier, adversary,
                 # dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
                 for i, param in enumerate(classifier.parameters()):
-                    # # normalize dW_LA
-                    # unit_dW_LA = dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny)
-                    # # draw projection
-                    # proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
-                    # # compute dW
-                    # param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])
                     dW_LA_param = autograd.grad(
                         outputs = loss_adv,
                         inputs = param
                     )
-                    param.grad = dW_LP[i] - torch.sum(torch.inner(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny), dW_LP[i]))*(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA_param)
+                    # normalize dW_LA
+                    unit_dW_LA = dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)
+                    # draw projection
+                    proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
+                    # compute dW
+                    param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA_param)
+
+                    # param.grad = dW_LP[i] - torch.sum(torch.inner(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny), dW_LP[i]))*(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA_param)
 
                 optimizer_cls.step()
                 optimizer_adv.step()
