@@ -1,20 +1,26 @@
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import resnet50, ResNet50_Weights
 import torch.optim as optim
+from torch.utils import tensorboard
+import wandb
 
-from adversarial_dataset import get_adversary_dataloader
+from adversarial_dataset import get_adversary_dataloader, evaluate
 
+import argparse
+import os
+import sys
+import random
+import pdb
+from json import dumps
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-HIDDEN_SIZE = 64
-NUM_EPOCHS = 10
-LEARNING_RATE = 0.001
-ALPHA = 1.0
 
 
 class baseline_classifier(nn.Module):
-    def __init__(self, num_classes = 8):
+    def __init__(self, num_classes = 7):
         super(baseline_classifier, self).__init__()
         self.model_ft= resnet50(pretrained = ResNet50_Weights)
         num_ftrs = self.model_ft.fc.in_features
@@ -28,41 +34,113 @@ class baseline_classifier(nn.Module):
         return out
 
 class adversary_classifier(nn.Module):
-    def __init__(self, input_size = 8, hidden_size = HIDDEN_SIZE, num_classes = 5):
+    def __init__(self, input_size, hidden_size, num_races = 7):
         super(adversary_classifier, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, num_classes)
+        self.fc2 = nn.Linear(hidden_size, num_races)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
+
+        # returns the adversary logits
         return x
 
+def save(classifier, adversary,
+        optimizer_cls, optimizer_adv,
+    log_dir, checkpoint_step):
+    target_path = (
+        f'{os.path.join(log_dir, "state")}'
+        f'{checkpoint_step}.pt'
+    )
+
+    optimizer_cls_state_dict = optimizer_cls.state_dict()
+    optimizer_adv_state_dict = optimizer_adv.state_dict()
+
+    classifier_state_dict = classifier.state_dict()
+    adversary_state_dict = adversary.state_dict()
+    torch.save(
+        dict(
+            classifier_state_dict = classifier_state_dict,
+            adversary_state_dict = adversary_state_dict, 
+            optimizer_cls_state_dict = optimizer_cls_state_dict,
+            optimizer_adv_state_dict = optimizer_adv_state_dict
+        ),
+        target_path
+    )
+    return
+
+def load(classifier, adversary,
+        optimizer_cls, optimizer_adv,
+    log_dir, checkpoint_step):
+
+    target_path = (
+        f'{os.path.join(log_dir, "state")}'
+        f'{checkpoint_step}.pt'
+    )
+
+    if os.path.isfile(target_path):
+        state = torch.load(target_path)
+        classifier.load_state_dict(state['classifier_state_dict'])
+        adversary.load_state_dict(state['adversary_state_dict'])
+        optimizer_cls.load_state_dict(state['optimizer_cls_state_dict'])
+        optimizer_adv.load_state_dict(state['optimizer_adv_state_dict'])
+        print(f'Loaded checkpoint iteration {checkpoint_step}.')
+    else:
+        raise ValueError(
+            f'No checkpoint for iteration {checkpoint_step} found.'
+        )
+    return classifier, adversary, optimizer_cls, optimizer_adv
+    
 
 def classifier_train(classifier, adversary,
                     train_loader, val_loader,
                     optimizer_cls, optimizer_adv,
-                    num_epochs, device = DEVICE):
-    for epoch in range(num_epochs):
+                    adv_alpha, 
+                    num_epochs,
+                    step, eval_step,
+                    writer, log_dir, # tensorboard
+                    device = DEVICE):
+
+    steps_till_eval = eval_step
+
+    epoch = step // len(train_laoder)
+
+    weights = torch.tensor(train_loader.dataset.label_weights, dtype = torch.float).to(device)
+
+    while epoch != num_epochs:
+        epoch += 1
+        log.info(f'Starting epoch {epoch}')
+
         classifier.train()
         adversary.train()
         for batch_idx, (data, label, group) in enumerate(train_loader):
             data, label, group = data.to(device), label.to(device), group.to(device)
+            batch_size = data.shape[0]
+
+            # zero out optimizers
             optimizer_cls.zero_grad()
             optimizer_adv.zero_grad()
 
+            # first predict emotion labels
             preds = classifier(data)
             loss_cls = F.cross_entropy(preds, label)
+            pred_loss_val = loss_cls.item()
+
+            # backward the predictor and get dW_LP
             loss_cls.backward()
             dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
             optimizer_cls.zero_grad()
             optimizer_adv.zero_grad()
 
+            # predict the adversary's race labels
             output_adv = adversary(preds)
             loss_adv = F.cross_entropy(output_adv, group)
-            loss_adv.backward()
+            adv_loss_val = loss_adv.item()
 
+            # backward and obtain dW_LA
+            loss_adv.backward()
             dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
             for i, param in enumerate(classifier.parameters()):
@@ -71,27 +149,38 @@ def classifier_train(classifier, adversary,
                 # draw projection
                 proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
                 # compute dW
-                param.grad = dW_LP[i] - (proj*unit_dW_LA) - (ALPHA*dW_LA[i])
+                param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])
 
             optimizer_cls.step()
             optimizer_adv.step()
 
-        classifier.eval()
-        val_loss = 0
-        val_acc = 0
+            # log train info
+            step += batch_size
+            writer.add_scalar("train/pred_loss",pred_loss_val, step)
+            writer.add_scalar("train/adv_loss", adv_loss_val, step)
 
-        with torch.no_grad():
-            for (data, label, group) in val_loader:
-                data, label, group = data.to(device), label.to(device), group.to(device)
-                label_preds = classifier(data)
-                output_adv = adversary(label_preds)
-                pred_label = torch.argmax(output_adv, dim=1)
-                val_loss += F.cross_entropy(pred_label, label)
-                val_acc += (pred_label == label).float().mean()
-            val_loss /= len(val_loader)
-            val_acc /= len(val_loader)
-        print(f"Epoch {epoch+1}: Training Loss={loss_cls.item():.4f}, \
-            Validation Loss={val_loss.item():.4f}, Validation Accuracy={val_acc.item()*100:.2f}%")
+            steps_till_eval -= batch_size
+
+            if steps_till_eval <= 0:
+                steps_till_eval = eval_step
+                
+                # evaluate using just predictor net
+                results, pred_dict = evaluate(classifier, val_loader, device)
+                results_str = ", ".join(f'{k}: {v:05.2f}' for k, v in results.items())
+                log.info(f'Val {results_str}')
+            
+                for k, v in results.items():
+                    tbx.add_scalar(f'val/{k}', v, step)
+
+                # save validation step
+                save(
+                    classifier,
+                    adversary,
+                    optimizer_cls,
+                    optimizer_adv,
+                    log_dir,
+                    step
+                )
 
 def test(classifier, adversary, test_loader, device = DEVICE):
     classifier.eval()
@@ -123,28 +212,94 @@ def test(classifier, adversary, test_loader, device = DEVICE):
 
 def main(args):
 
-    # Define the loss function for the adversarial classifier
-    baseline = baseline_classifier()
-    adversary = adversary_classifier()
+    # Initialize logging (Tensorboard and Wandb)
+    log_dir = args.log_dir
+    if log_dir is None:
+        log_dir = f'./save/adversarial.batch_size:{args.batch_size}' # pylint: disable=line-too-long
+    print(f'log_dir: {log_dir}')
+    wandb_name = log_dir.split('/')[-1]
+    wandb.init(project="test-project", entity="fairemotion", config=args, name=wandb_name, sync_tensorboard=True)
+    writer = tensorboard.SummaryWriter(log_dir=log_dir)
+
+    # make the classifiers
+    predictor = baseline_classifier(num_classes = 7)
+    adversary = adversary_classifier(input_size = 7, hidden_size = args.hidden_size, num_races =5)
 
     # Define the optimizer and hyparameters for training the adversarial classifier
-    optimizer_base = optim.Adam(baseline.parameters(), lr = LEARNING_RATE)
-    optimizer_adv = optim.Adam(adversary.parameters(), lr = LEARNING_RATE)
+    optimizer_predictor = optim.Adam(baseline.parameters(), lr = args.predictor_lr)
+    optimizer_adv = optim.Adam(adversary.parameters(), lr = args.adversary_lr)
+    step = 0
+    
+    # load in if checkpoint step defined
+    if args.checkpoint_step > -1: 
+        predictor, adversary, optimizer_predictor, optimizer_adv = load(
+            predictor,
+            adversary,
+            optimizer_predictor,
+            optimizer_adv,
+            log_dir,
+            checkpoint_step
+        )
+        # update starting step
+        step = checkpoint_step
+
 
     # Define dataloaders
-    train_loader = get_adversary_dataloader(data_csv = args.train_csv,
-                split = 'train',
-                batch_size = args.batch_size,
-                task_batch_size = None)
+    if args.test:
+        raise Exception("Test not implemented yet")
+    else:
+        train_loader = get_adversary_dataloader(data_csv = args.train_csv,
+                    split = 'train',
+                    batch_size = args.batch_size,
+                    task_batch_size = None)
 
-    val_loader = get_adversary_dataloader(data_csv = args.val_csv,
-                split = 'val',
-                batch_size = args.batch_size,
-                task_batch_size = None)
+        val_loader = get_adversary_dataloader(data_csv = args.val_csv,
+                    split = 'val',
+                    batch_size = args.batch_size,
+                    task_batch_size = None)
 
-    classifier_train(baseline, adversary, train_loader, val_loader,
-                     optimizer_base, optimizer_adv, num_epochs = NUM_EPOCHS)
-    test(baseline, adversary, test_loader = get_adversary_dataloader(data_csv = args.test_csv,
-                split = 'test',
-                batch_size = args.batch_size,
-                task_batch_size = None))
+        classifier_train(classifier = predictor, 
+                        adversary = adversary,
+                        train_loader = train_loader, 
+                        val_loader = val_loader,
+                        optimizer_cls =optimizer_predictor,
+                        optimizer_adv = optimizer_adv,
+                        adv_alpha = args.adversary_alpha, 
+                        num_epochs = args.num_epochs,
+                        step = step, 
+                        eval_step = args.eval_step,
+                        writer = writer, 
+                        log_dir = log_dir)
+
+
+if __name__=='__main__':
+    parser = argparse.ArgumentParser("Train Adversarial Debiasing on Facial Expression")
+
+    parser.add_argument('--log_dir', type=str, default=None,
+                        help='directory to save to or load from')
+    parser.add_argument("--train_csv", type = str, default="./affectnet_train_filepath_full.csv")
+    parser.add_argument("--val_csv", type = str, default="./affectnet_val_filepath_full.csv")
+    parser.add_argument('--predictor_lr', type=float, default=0.0001,
+                        help='predictor learning rate')
+    parser.add_argument('--adversary_lr', type=float, default=0.001,
+                        help='adversary learning rate')
+    parser.add_argument('--adversary_alpha', type=float, default=1,
+                        help='adversary alpha')
+    parser.add_argument('--dynamic_alpha', default=False, action = 'store_true',
+                        help='adjust alpha as 1/sqrt(t) and predictor_lr as 1/t')
+    parser.add_argument('--batch_size', type=int, default=64,
+                        help='number of images per batch')
+    parser.add_argument('--adv_hidden_size', type=int, default=64,
+                        help='hidden size of adv layers')
+    parser.add_argument('--l2_wd', type=float, default=0,
+                        help='l2 weight decay for outer loop')
+    parser.add_argument('--eval_step', type=int, default=40000,
+                        help='number of steps before eval for validation')
+    parser.add_argument('--checkpoint_step', type=int, default=-1,
+                        help=('checkpoint iteration to load for resuming '
+                              'training, or for evaluation (-1 is ignored)'))
+    parser.add_argument('--test', default=False, action = 'store_true',
+                        help='Test on CAFE')
+    
+    main_args = parser.parse_args()
+    main(main_args)     
