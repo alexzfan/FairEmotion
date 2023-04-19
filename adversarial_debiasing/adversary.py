@@ -3,6 +3,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import autograd
 from torchvision.models import resnet50, ResNet50_Weights
 import torch.optim as optim
 from torch.utils import tensorboard
@@ -130,9 +131,13 @@ def classifier_train(classifier, adversary,
                 loss_cls = F.cross_entropy(preds, label, weight = weights)
                 pred_loss_val = loss_cls.item()
 
-                # backward the predictor and get dW_LP
-                loss_cls.backward(retain_graph = True)
-                dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
+                # get dW_LP
+                # dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
+                dW_LP = autograd.grad(
+                    outputs = loss_cls,
+                    inputs = classifier.parameters(),
+                    retain_graph = True
+                )
 
                 optimizer_cls.zero_grad()
                 optimizer_adv.zero_grad()
@@ -153,8 +158,11 @@ def classifier_train(classifier, adversary,
                     # proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
                     # # compute dW
                     # param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])
-
-                    param.grad = dW_LP[i] - torch.sum(torch.inner(dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny), dW_LP[i]))*(dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA[i])
+                    dW_LA_param = autograd.grad(
+                        outputs = loss,
+                        inputs = param
+                    )
+                    param.grad = dW_LP[i] - torch.sum(torch.inner(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny), dW_LP[i]))*(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA_param)
 
                 optimizer_cls.step()
                 optimizer_adv.step()

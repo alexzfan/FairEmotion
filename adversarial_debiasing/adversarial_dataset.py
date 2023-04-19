@@ -85,14 +85,14 @@ def get_adversary_dataloader(data_csv, split, batch_size):
         return DataLoader(dataset, 
                             batch_size = batch_size,
                             shuffle = True,
-                            num_workers = 8)
+                            num_workers = 4)
 
     else:
         dataset = AdversarialDataset(data_csv, train = False)
         return DataLoader(dataset, 
                             batch_size = batch_size,
                             shuffle = False,
-                            num_workers = 8)
+                            num_workers = 4)
 def acc_score(logits, labels):
     """Returns the mean accuracy of a model's predictions on a set of examples.
     Args:
