@@ -228,7 +228,7 @@ def main(args):
                                     num_races =7)
 
     # Define the optimizer and hyparameters for training the adversarial classifier
-    optimizer_predictor = optim.Adam(baseline.parameters(), lr = args.predictor_lr)
+    optimizer_predictor = optim.Adam(predictor.parameters(), lr = args.predictor_lr)
     optimizer_adv = optim.Adam(adversary.parameters(), lr = args.adversary_lr)
     step = 0
     
