@@ -26,7 +26,7 @@ class baseline_classifier(nn.Module):
         num_ftrs = self.model_ft.fc.in_features
         self.model_ft.fc = nn.Linear(num_ftrs, num_classes)
 
-        self._model_ft = self._model_ft.to(DEVICE)
+        self.model_ft = self.model_ft.to(DEVICE)
 
     def forward(self, x):
         # forward through linear layers
