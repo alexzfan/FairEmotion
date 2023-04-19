@@ -223,7 +223,9 @@ def main(args):
 
     # make the classifiers
     predictor = baseline_classifier(num_classes = 7)
-    adversary = adversary_classifier(input_size = 7, hidden_size = args.hidden_size, num_races =5)
+    adversary = adversary_classifier(input_size = 7, 
+                                    hidden_size = args.adv_hidden_size, 
+                                    num_races =7)
 
     # Define the optimizer and hyparameters for training the adversarial classifier
     optimizer_predictor = optim.Adam(baseline.parameters(), lr = args.predictor_lr)
