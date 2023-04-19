@@ -61,8 +61,7 @@ class AdversarialDataset(Dataset):
                 ]
             )
         image = std_image(image)
-
-        assert(image.shape == (3,244,244))
+        assert(image.shape == (3,224,224))
 
         label = self._data.loc[index, "label"]
         image_num = self._data.loc[index, 'image_num']
