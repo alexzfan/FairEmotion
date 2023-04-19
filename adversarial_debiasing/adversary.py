@@ -154,7 +154,8 @@ def classifier_train(classifier, adversary,
                 for i, param in enumerate(classifier.parameters()):
                     dW_LA_param = autograd.grad(
                         outputs = loss_adv,
-                        inputs = param
+                        inputs = param,
+                        retain_graph = True
                     )[0]
                     # normalize dW_LA
                     unit_dW_LA = dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)
