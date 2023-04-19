@@ -19,7 +19,7 @@ import pdb
 from tqdm import tqdm
 from json import dumps
 
-import nvidia-smi
+import nvidia_smi
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
