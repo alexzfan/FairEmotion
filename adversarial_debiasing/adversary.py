@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import autograd
-from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import resnet18, ResNet18_Weights
 import torch.optim as optim
 from torch.utils import tensorboard
 import wandb
@@ -24,7 +24,7 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 class baseline_classifier(nn.Module):
     def __init__(self, num_classes = 7):
         super(baseline_classifier, self).__init__()
-        self.model_ft= resnet50(pretrained = ResNet50_Weights)
+        self.model_ft= resnet18(pretrained = ResNet18_Weights)
         num_ftrs = self.model_ft.fc.in_features
         self.model_ft.fc = nn.Linear(num_ftrs, num_classes)
 
