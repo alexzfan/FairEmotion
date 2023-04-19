@@ -104,7 +104,7 @@ def classifier_train(classifier, adversary,
 
     steps_till_eval = eval_step
 
-    epoch = step // len(train_laoder)
+    epoch = step // len(train_loader)
 
     weights = torch.tensor(train_loader.dataset.label_weights, dtype = torch.float).to(device)
 
