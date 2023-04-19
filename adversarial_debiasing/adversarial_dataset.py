@@ -6,6 +6,7 @@ from PIL import Image
 from sklearn.utils.class_weight import compute_class_weight
 
 import logging
+import os
 
 TRANSFORM = Compose([
                 ToTensor(),
