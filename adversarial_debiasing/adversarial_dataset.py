@@ -81,7 +81,7 @@ def get_adversary_dataloader(data_csv, split, batch_size):
     else:
         dataset = AdversarialDataset(data_csv, train = False)
         return DataLoader(dataset, 
-                            batch_size = batch_size
+                            batch_size = batch_size,
                             shuffle = False,
                             num_workers = 8)
 def acc_score(logits, labels):
