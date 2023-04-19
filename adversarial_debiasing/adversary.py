@@ -115,7 +115,7 @@ def classifier_train(classifier, adversary,
 
         classifier.train()
         adversary.train()
-        for batch_idx, (data, label, group) in enumerate(train_loader):
+        for batch_idx, (image_num, data, label, group) in enumerate(train_loader):
             data, label, group = data.to(device), label.to(device), group.to(device)
             batch_size = data.shape[0]
 
