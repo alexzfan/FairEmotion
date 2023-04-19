@@ -149,7 +149,7 @@ def classifier_train(classifier, adversary,
 
                 # backward and obtain dW_LA
                 loss_adv.backward()
-                dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
+                # dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
                 for i, param in enumerate(classifier.parameters()):
                     # # normalize dW_LA
@@ -159,7 +159,7 @@ def classifier_train(classifier, adversary,
                     # # compute dW
                     # param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])
                     dW_LA_param = autograd.grad(
-                        outputs = loss,
+                        outputs = loss_adv,
                         inputs = param
                     )
                     param.grad = dW_LP[i] - torch.sum(torch.inner(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny), dW_LP[i]))*(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA_param)
