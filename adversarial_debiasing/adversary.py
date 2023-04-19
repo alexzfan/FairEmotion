@@ -125,7 +125,7 @@ def classifier_train(classifier, adversary,
 
             # first predict emotion labels
             preds = classifier(data)
-            loss_cls = F.cross_entropy(preds, label)
+            loss_cls = F.cross_entropy(preds, label, weight = weights)
             pred_loss_val = loss_cls.item()
 
             # backward the predictor and get dW_LP
@@ -248,6 +248,8 @@ def main(args):
         # update starting step
         step = checkpoint_step
 
+    predictor = predictor.to(DEVICE)
+    adversary = adversary.to(DEVICE)
 
     # Define dataloaders
     if args.test:
