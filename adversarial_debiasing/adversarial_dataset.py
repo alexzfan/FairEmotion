@@ -118,7 +118,7 @@ def acc_score(logits, labels):
 
     num_correct = torch.sum(corrects_bool).item()
     acc = torch.mean(corrects_bool).item()
-    return preds, num_correct, 
+    return preds, num_correct, acc
 
 class AverageMeter:
     """Keep track of average values over time.
