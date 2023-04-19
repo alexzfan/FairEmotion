@@ -142,13 +142,16 @@ def classifier_train(classifier, adversary,
                 pred_loss_val = loss_cls.item()
 
                 # get dW_LP
-                # dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
-                dW_LP = autograd.grad(
-                    outputs = loss_cls,
-                    inputs = classifier.parameters(),
-                    retain_graph = True
-                )
-                print("Free memory:", info.free)
+                loss_cls.backward(retain_graph = True)
+                dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
+                # dW_LP = autograd.grad(
+                #     outputs = loss_cls,
+                #     inputs = classifier.parameters(),
+                #     retain_graph = True
+                # )
+                handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
+                info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+                print("after loss_cls.backward() Free memory:", info.free)
                 optimizer_cls.zero_grad()
                 optimizer_adv.zero_grad()
 
@@ -159,17 +162,22 @@ def classifier_train(classifier, adversary,
 
                 # backward and obtain dW_LA
                 loss_adv.backward(retain_graph=False)
-                print("Free memory:", info.free)
-                # dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
+                dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
+                handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
+                info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+                print("after loss_adv.backward Free memory:", info.free)
 
                 for i, param in enumerate(classifier.parameters()):
                     # normalize dW_LA
-                    unit_dW_LA = param.grad.detach() / (torch.norm(param.grad.detach()) + torch.finfo(float).tiny)
+                    print("param.grad shape: ", param.grad.shape)
+                    unit_dW_LA = dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny)
                     # draw projection
                     proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
                     # compute dW
-                    param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*param.grad.detach())
-                    print("Free memory:", info.free)
+                    param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])
+                    handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
+                    info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+                    print("after param.grad Free memory:", info.free)
                     # param.grad = dW_LP[i] - torch.sum(torch.inner(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny), dW_LP[i]))*(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA_param)
 
                 optimizer_cls.step()
