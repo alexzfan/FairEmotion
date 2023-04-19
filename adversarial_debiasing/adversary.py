@@ -155,7 +155,7 @@ def classifier_train(classifier, adversary,
                     dW_LA_param = autograd.grad(
                         outputs = loss_adv,
                         inputs = param
-                    )
+                    )[0]
                     # normalize dW_LA
                     unit_dW_LA = dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)
                     # draw projection
