@@ -129,7 +129,7 @@ def classifier_train(classifier, adversary,
             pred_loss_val = loss_cls.item()
 
             # backward the predictor and get dW_LP
-            loss_cls.backward()
+            loss_cls.backward(retain_graph = True)
             dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
             optimizer_cls.zero_grad()
