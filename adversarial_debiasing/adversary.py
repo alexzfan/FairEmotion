@@ -130,7 +130,7 @@ def classifier_train(classifier, adversary,
 
             # backward the predictor and get dW_LP
             loss_cls.backward(retain_graph = True)
-            dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
+            dW_LP = [torch.clone(p.grad.detach()).to('cpu') for p in classifier.parameters()]
 
             optimizer_cls.zero_grad()
             optimizer_adv.zero_grad()
@@ -142,11 +142,11 @@ def classifier_train(classifier, adversary,
 
             # backward and obtain dW_LA
             loss_adv.backward()
-            dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
+            dW_LA = [torch.clone(p.grad.detach()).to('cpu') for p in classifier.parameters()]
 
             for i, param in enumerate(classifier.parameters()):
                 # normalize dW_LA
-                unit_dW_LA = dW_LA[i] / torch.norm(dW_LA[i]) + torch.finfo(float).tiny
+                unit_dW_LA = dW_LA[i] / (torch.norm(dW_LA[i]) + torch.finfo(float).tiny)
                 # draw projection
                 proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
                 # compute dW
