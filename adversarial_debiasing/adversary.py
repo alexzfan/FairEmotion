@@ -15,7 +15,7 @@ import os
 import sys
 import random
 import pdb
-import tqdm
+from tqdm import tqdm
 from json import dumps
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
