@@ -71,6 +71,9 @@ class AdversarialDataset(Dataset):
 
         return example
 
+    def __len__(self):
+        return len(self._data)
+
 def get_adversary_dataloader(data_csv, split, batch_size):
     if split == "train":
         dataset = AdversarialDataset(data_csv, train = True)
