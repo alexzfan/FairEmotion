@@ -18,6 +18,8 @@ import random
 import pdb
 from tqdm import tqdm
 from json import dumps
+
+import nvidia-smi
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
@@ -117,6 +119,14 @@ def classifier_train(classifier, adversary,
 
         classifier.train()
         adversary.train()
+
+        nvidia_smi.nvmlInit()
+        handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
+        # card id 0 hardcoded here, there is also a call to get all available card ids, so we could iterate
+        info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+
+
+
         with tqdm(total=len(train_loader.dataset)) as progress_bar:
             for batch_idx, (image_num, data, label, group) in enumerate(train_loader):
                 data, label, group = data.to(device), label.to(device), group.to(device)
@@ -138,7 +148,7 @@ def classifier_train(classifier, adversary,
                     inputs = classifier.parameters(),
                     retain_graph = True
                 )
-
+                print("Free memory:", info.free)
                 optimizer_cls.zero_grad()
                 optimizer_adv.zero_grad()
 
@@ -149,6 +159,7 @@ def classifier_train(classifier, adversary,
 
                 # backward and obtain dW_LA
                 loss_adv.backward(retain_graph=False)
+                print("Free memory:", info.free)
                 # dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
                 for i, param in enumerate(classifier.parameters()):
@@ -158,7 +169,7 @@ def classifier_train(classifier, adversary,
                     proj = torch.sum(torch.inner(unit_dW_LA, dW_LP[i]))
                     # compute dW
                     param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*param.grad.detach())
-
+                    print("Free memory:", info.free)
                     # param.grad = dW_LP[i] - torch.sum(torch.inner(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny), dW_LP[i]))*(dW_LA_param / (torch.norm(dW_LA_param) + torch.finfo(float).tiny)) - (adv_alpha*dW_LA_param)
 
                 optimizer_cls.step()
