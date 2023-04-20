@@ -183,7 +183,7 @@ def classifier_train(classifier, adversary,
                     log.info(f'Val {results_str}')
                 
                     for k, v in results.items():
-                        tbx.add_scalar(f'val/{k}', v, step)
+                        writer.add_scalar(f'val/{k}', v, step)
 
                     # save validation step
                     save(
