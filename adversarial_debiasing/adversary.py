@@ -137,11 +137,7 @@ def classifier_train(classifier, adversary,
                 # get dW_LP
                 loss_cls.backward(retain_graph = True)
                 dW_LP = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
-                # dW_LP = autograd.grad(
-                #     outputs = loss_cls,
-                #     inputs = classifier.parameters(),
-                #     retain_graph = True
-                # )
+
                 optimizer_cls.zero_grad()
                 optimizer_adv.zero_grad()
 
