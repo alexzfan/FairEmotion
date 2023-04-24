@@ -155,7 +155,7 @@ def classifier_train(classifier, adversary,
                         proj_term = torch.inner(dW_LA[i], dW_LP[i]) * dW_LA[i] / (torch.norm(dW_LA[i]) +torch.finfo(float).tiny)
                     else:
                         proj_shape = dW_LA[i].shape
-                        proj_term = (torch.inner(dW_LA[i].flatten(), dW_LP[i].flatten()) * dW_LA[i].flatten() / (torch.norm(dW_LA[i].flatten())+torch.finfo(float).tiny)).reshape(a.shape)
+                        proj_term = (torch.inner(dW_LA[i].flatten(), dW_LP[i].flatten()) * dW_LA[i].flatten() / (torch.norm(dW_LA[i].flatten())+torch.finfo(float).tiny)).reshape(proj_shape)
                     # compute dW
                     param.grad = dW_LP[i] - (proj_term) - (adv_alpha*dW_LA[i])
                     
