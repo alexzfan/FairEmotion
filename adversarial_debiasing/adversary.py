@@ -9,7 +9,7 @@ import torch.optim as optim
 from torch.utils import tensorboard
 import wandb
 
-from adversarial_dataset import get_adversary_dataloader, evaluate, get_logger
+from adversarial_dataset import get_adversary_dataloader, acc_score, evaluate, get_logger
 
 import argparse
 import os
@@ -192,33 +192,47 @@ def classifier_train(classifier, adversary,
                         step
                     )
 
-def test(classifier, adversary, test_loader, device = DEVICE):
+def test(classifier, test_loader, log_dir, device = DEVICE):
     classifier.eval()
 
-    test_loss = 0
-    test_acc = 0
+    full_labels = []
+    full_img_id = []
+    full_preds = []
 
-    with torch.no_grad():
-        for (img, label, group) in test_loader:
-            data, label, group = data.to(device), label.to(device), group.to(device)
-            output = classifier(img)
-            adv_output = adversary(output)
-            adv_pred = torch.argmax(adv_output, dim=1)
-            debiased_pred = torch.zeros_like(adv_pred)
+    acc = 0
+    num_corrects, num_samples = 0, 0
+    criterion = nn.CrossEntropyLoss()
 
-            for i in range(len(debiased_pred)):
-                debiased_pred[i] = output[i, adv_pred[i]]
+    with torch.no_grad(), \
+        tqdm(total = len(test_loader.dataset)) as progres_bar:
+        for img_id, x, y, race in test_loader:
+            x = x.float().to(device)
+            y = y.type(torch.LongTensor).to(device)
 
-            debiased_probs = torch.nn.functional.softmax(debiased_pred, dim=1)
-            debiased_labels = torch.argmax(debiased_probs, dim=1)
+            output = classifier(x)
+            preds, num_correct, acc = acc_score(output, y)
 
-            test_loss += F.cross_entropy(debiased_labels, label)
-            test_acc += (debiased_labels == label).float().mean()
+            loss = criterion(score, y)
+            progress_bar.update(x.shape[0])
+            progress_bar.set_postfix(loss = loss.item())
 
-    test_loss /= len(test_loader)
-    test_acc /= len(test_loader)
+            num_corrects += num_correct
+            num_samples += preds.size(0)
 
-    print(f"Test Loss={test_loss.item():.4f}, Test Accuracy={test_acc.item()*100:.2f}%")
+            full_img_id.extend([ids.item() for ids in img_id])
+            full_preds.extend(preds)
+            full_labels.extend(y)
+
+        acc = float(num_corrects) / num_samples
+
+        # F1 Score
+        y_pred = np.asarray([pred.cpu() for pred in full_preds]).astype(int)
+        y = np.asarray([label.cpu() for label in full_labels]).astype(int)
+        f1 = metrics.f1_score(y, y_pred, average = 'macro')
+
+        df = pd.DataFrame(list(zip(full_img_id, y_pred, y)), columns =['img_id', 'preds', 'labels'])
+        sub_path = os.path.join(log_dir, "test_submission.csv")
+        df.to_csv(sub_path, encoding = "utf-8")
 
 def main(args):
 
@@ -262,7 +276,10 @@ def main(args):
 
     # Define dataloaders
     if args.test:
-        raise Exception("Test not implemented yet")
+        test_loader = get_adversary_dataloader(data_csv = args.test_csv,
+                        split = 'test',
+                        batch_size =args.batch_size)
+        test(predictor, test_loader, log_dir)
     else:
         train_loader = get_adversary_dataloader(data_csv = args.train_csv,
                     split = 'train',
