@@ -151,12 +151,13 @@ def classifier_train(classifier, adversary,
                 dW_LA = [torch.clone(p.grad.detach()) for p in classifier.parameters()]
 
                 for i, param in enumerate(classifier.parameters()):
-                    # normalize dW_LA
-                    unit_dW_LA = dW_LA[i] / (torch.norm(dW_LA[i]) +torch.finfo(float).tiny)
-                    # draw projection
-                    proj = torch.sum(torch.mul(unit_dW_LA, dW_LP[i]))
+                    if len(dW_LA[i].shape) == 1:
+                        proj_term = torch.inner(dW_LA[i], dW_LP[i]) * dW_LA[i] / (torch.norm(dW_LA[i]) +torch.finfo(float).tiny)
+                    else:
+                        proj_shape = dW_LA[i].shape
+                        proj_term = (torch.inner(dW_LA[i].flatten(), dW_LP[i].flatten()) * dW_LA[i].flatten() / (torch.norm(dW_LA[i].flatten())+torch.finfo(float).tiny)).reshape(a.shape)
                     # compute dW
-                    param.grad = dW_LP[i] - (proj*unit_dW_LA) - (adv_alpha*dW_LA[i])
+                    param.grad = dW_LP[i] - (proj_term) - (adv_alpha*dW_LA[i])
                     
                 optimizer_cls.step()
                 optimizer_adv.step()
