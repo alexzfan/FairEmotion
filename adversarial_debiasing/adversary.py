@@ -266,7 +266,7 @@ def main(args):
             optimizer_predictor,
             optimizer_adv,
             log_dir,
-            checkpoint_step
+            args.checkpoint_step
         )
         # update starting step
         step = checkpoint_step
