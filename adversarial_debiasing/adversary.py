@@ -311,6 +311,7 @@ if __name__=='__main__':
                         help='directory to save to or load from')
     parser.add_argument("--train_csv", type = str, default="./affectnet_train_filepath_full.csv")
     parser.add_argument("--val_csv", type = str, default="./affectnet_val_filepath_full.csv")
+    parser.add_argument("--test_csv", type = str, default="./cafe_full.csv")
     parser.add_argument('--predictor_lr', type=float, default=0.0001,
                         help='predictor learning rate')
     parser.add_argument('--adversary_lr', type=float, default=0.001,
