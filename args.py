@@ -152,7 +152,7 @@ def get_test_args():
     parser.add_argument('--model_type',
                         type=str,
                         default = "baseline",
-                        choices=("baseline"),
+                        choices=("baseline",),
                         help='Model choice for training')
     parser.add_argument('--ensemble_list',
                         type=str,
