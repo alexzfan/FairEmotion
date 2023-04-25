@@ -187,7 +187,7 @@ def main(args):
                     # tensorboard
                     log.info("Visualizing in TensorBoard")
                     for k, v in results.items():
-                        tbx.add_scalar(f'dev/{k}', v, step)
+                        tbx.add_scalar(f'val/{k}', v, step)
 
 def evaluate(args, model, data_loader, device):
     nll_meter = util.AverageMeter()
