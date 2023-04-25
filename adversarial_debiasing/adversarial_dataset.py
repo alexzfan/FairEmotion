@@ -86,7 +86,7 @@ class AdversarialDataset(Dataset):
     def __len__(self):
         return len(self._data)
 
-class CAFEDataset(data.Dataset):
+class CAFEDataset(Dataset):
     """
     Preprocess and prepare data for feeding into NN
     """
