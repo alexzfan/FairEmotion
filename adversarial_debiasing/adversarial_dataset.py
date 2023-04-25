@@ -116,24 +116,24 @@ class CAFEDataset(Dataset):
         image = Image.open(image_path).convert("RGB")
 
         if self.train:
-            std_image = transforms.Compose(
+            std_image = Compose(
             [
-                transforms.ColorJitter(brightness=0.5, hue = 0.3),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Resize((224,224)),
-                transforms.Normalize(
+                ColorJitter(brightness=0.5, hue = 0.3),
+                RandomHorizontalFlip(),
+                ToTensor(),
+                Resize((224,224)),
+                Normalize(
                     mean=(0.485, 0.456, 0.406), 
                     std=(0.229, 0.224, 0.225)
                 )
             ]
         )
         else:
-            std_image = transforms.Compose(
+            std_image = Compose(
                 [
-                    transforms.ToTensor(),
-                    transforms.Resize((224,224)),
-                    transforms.Normalize(                    
+                    ToTensor(),
+                    Resize((224,224)),
+                    Normalize(                    
                     mean=(0.485, 0.456, 0.406), 
                     std=(0.229, 0.224, 0.225)
                     )
