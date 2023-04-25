@@ -212,7 +212,7 @@ def test(classifier, test_loader, log_dir, device = DEVICE):
             output = classifier(x)
             preds, num_correct, acc = acc_score(output, y)
 
-            loss = criterion(score, y)
+            loss = criterion(output, y)
             progress_bar.update(x.shape[0])
             progress_bar.set_postfix(loss = loss.item())
 
