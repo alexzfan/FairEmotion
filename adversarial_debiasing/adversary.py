@@ -269,7 +269,7 @@ def main(args):
             args.checkpoint_step
         )
         # update starting step
-        step = checkpoint_step
+        step = args.checkpoint_step
 
     predictor = predictor.to(DEVICE)
     adversary = adversary.to(DEVICE)
