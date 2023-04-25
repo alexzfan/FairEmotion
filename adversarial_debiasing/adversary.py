@@ -204,7 +204,7 @@ def test(classifier, test_loader, log_dir, device = DEVICE):
     criterion = nn.CrossEntropyLoss()
 
     with torch.no_grad(), \
-        tqdm(total = len(test_loader.dataset)) as progres_bar:
+        tqdm(total = len(test_loader.dataset)) as progress_bar:
         for img_id, x, y in test_loader:
             x = x.float().to(device)
             y = y.type(torch.LongTensor).to(device)
