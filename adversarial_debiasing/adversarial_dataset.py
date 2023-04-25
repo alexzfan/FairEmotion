@@ -86,6 +86,78 @@ class AdversarialDataset(Dataset):
     def __len__(self):
         return len(self._data)
 
+class CAFEDataset(data.Dataset):
+    """
+    Preprocess and prepare data for feeding into NN
+    """
+    def __init__(
+        self,
+        data_csv,
+        train,
+        balance = None
+    ):
+
+        # make a two col pandas df of image number : label
+        assert(os.path.isdir("./cropped_sessions"))
+        self.data_csv = data_csv
+        self.train = train
+        
+        self.data = pd.read_csv(data_csv)
+        self.data.label = self.data.label.astype(int)
+        self.labels = self.data.label.tolist()
+
+        self.label_weights = compute_class_weight(class_weight='balanced', classes= np.unique(self.labels), y= np.array(self.labels)) #? should we drop the .cpu() here?
+
+    def __getitem__(self, index):
+
+        # use the df to read in image for the given index
+        image_path = "cropped_" + self.data.loc[index, 'Orig_filepath']
+
+        image = Image.open(image_path).convert("RGB")
+
+        if self.train:
+            std_image = transforms.Compose(
+            [
+                transforms.ColorJitter(brightness=0.5, hue = 0.3),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Resize((224,224)),
+                transforms.Normalize(
+                    mean=(0.485, 0.456, 0.406), 
+                    std=(0.229, 0.224, 0.225)
+                )
+            ]
+        )
+        else:
+            std_image = transforms.Compose(
+                [
+                    transforms.ToTensor(),
+                    transforms.Resize((224,224)),
+                    transforms.Normalize(                    
+                    mean=(0.485, 0.456, 0.406), 
+                    std=(0.229, 0.224, 0.225)
+                    )
+                ]
+            )
+        image = std_image(image)
+        if(image.shape != (3, 224, 224)):
+            raise Exception("image shape wrong. {}, {}".format(self.data.loc[index,'Internal_id'], image.shape))
+
+        label = self.data.loc[index, "label"]
+        internal_id = self.data.loc[index, 'Internal_id']
+
+        example = (
+            internal_id,
+            image,
+            label
+        )
+
+        return example
+
+    def __len__(self):
+
+        return len(self.data)
+
 def get_adversary_dataloader(data_csv, split, batch_size):
     if split == "train":
         dataset = AdversarialDataset(data_csv, train = True)
@@ -93,7 +165,12 @@ def get_adversary_dataloader(data_csv, split, batch_size):
                             batch_size = batch_size,
                             shuffle = True,
                             num_workers = 4)
-
+    elif split == "test":
+        dataset = CAFEDataset(data_csv,train = False)
+        return DataLoader(dataset,
+                            batch_size = batch_size,
+                            shuffle = False,
+                            num_workers =4)
     else:
         dataset = AdversarialDataset(data_csv, train = False)
         return DataLoader(dataset, 

@@ -205,7 +205,7 @@ def test(classifier, test_loader, log_dir, device = DEVICE):
 
     with torch.no_grad(), \
         tqdm(total = len(test_loader.dataset)) as progres_bar:
-        for img_id, x, y, race in test_loader:
+        for img_id, x, y in test_loader:
             x = x.float().to(device)
             y = y.type(torch.LongTensor).to(device)
 
