@@ -95,7 +95,11 @@ def main(args):
     # load in data
     log.info("Building dataset....")
     if(args.dataset == "affectnet"):
-        train_dataset = AffectNetCSVDataset(args.train_csv, train = False, balance = False)
+        train_dataset = AffectNetCSVDataset(args.train_csv, 
+                                            train = False, 
+                                            balance = False,
+                                            race_quant_sampling = args.race_quant_sampling,
+                                            race_quant_sampling_prop = args.race_quant_sampling_prop)
         train_loader = data.DataLoader(train_dataset,
                                     batch_size=args.batch_size,
                                     shuffle=True,

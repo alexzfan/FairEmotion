@@ -131,8 +131,8 @@ class AffectNetCSVDataset(data.Dataset):
         self.label_weights = compute_class_weight(class_weight='balanced', classes= np.unique(self.data.label), y= np.array(self.data.label)) #? should we drop the .cpu() here?
 
         if race_quant_sampling and race_quant_sampling_prop:
-            assert(race_quant_sampling in np.unique(self.data.race))
-            assert(isinstance(race_quant_sampling_prop, int))
+            assert(race_quant_sampling in self.data.race.unique())
+            assert(isinstance(race_quant_sampling_prop, float))
 
             if race_quant_sampling == "White":
                 # down sample white, keep all else

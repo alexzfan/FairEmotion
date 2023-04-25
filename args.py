@@ -3,6 +3,27 @@ CLI args for the various routines
 """
 import argparse
 
+def float_range(mini,maxi):
+    """Return function handle of an argument type function for 
+       ArgumentParser checking a float range: mini <= arg <= maxi
+         mini - minimum acceptable argument
+         maxi - maximum acceptable argument"""
+
+    # Define the function with default arguments
+    def float_range_checker(arg):
+        """New Type function for argparse - a float within predefined range."""
+
+        try:
+            f = float(arg)
+        except ValueError:    
+            raise argparse.ArgumentTypeError("must be a floating point number")
+        if f < mini or f > maxi:
+            raise argparse.ArgumentTypeError("must be in range [" + str(mini) + " .. " + str(maxi)+"]")
+        return f
+
+    # Return function handle to checking function
+    return float_range_checker
+
 def get_train_args():
     """Get arguments needed in train.py."""
     parser = argparse.ArgumentParser('Train a model on Facial Expression')
@@ -54,8 +75,17 @@ def get_train_args():
     parser.add_argument('--model_type',
                         type=str,
                         default = "baseline",
-                        choices=("baseline", "visualbert", "visualbert_fairface"),
+                        choices=("baseline",),
                         help='Model choice for training')
+    parser.add_argument('--race_quant_sampling',
+                        type=str,
+                        default = None,
+                        choices=("White","Latino_Hispanic", "Black", "Middle Eastern", "East Asian", "Indian", "Southeast Asian"),
+                        help='Race to maintain certain proportion when testing bias quantification')
+    parser.add_argument('--race_quant_sampling_prop',
+                        type = float_range(0,1),
+                        default = None,
+                        help='Propertion to maintain for certain race when testing bias quantification')
     parser.add_argument('--shuffle_dataset',
                         type=bool,
                         default=True,
