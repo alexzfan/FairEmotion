@@ -86,6 +86,10 @@ def get_train_args():
                         type = float_range(0,1),
                         default = None,
                         help='Propertion to maintain for certain race when testing bias quantification')
+    parser.add_argument('--race_quant_sampling_size',
+                        type = int,
+                        default = None,
+                        help='Overall training set size to maintain when testing bias quantification')
     parser.add_argument('--shuffle_dataset',
                         type=bool,
                         default=True,

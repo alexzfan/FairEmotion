@@ -99,7 +99,8 @@ def main(args):
                                             train = False, 
                                             balance = False,
                                             race_quant_sampling = args.race_quant_sampling,
-                                            race_quant_sampling_prop = args.race_quant_sampling_prop)
+                                            race_quant_sampling_prop = args.race_quant_sampling_prop,
+                                            race_quant_sampling_size = args.race_quant_sampling_size)
         train_loader = data.DataLoader(train_dataset,
                                     batch_size=args.batch_size,
                                     shuffle=True,

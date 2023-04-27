@@ -121,7 +121,8 @@ class AffectNetCSVDataset(data.Dataset):
         train,
         balance = None,
         race_quant_sampling = None,
-        race_quant_sampling_prop = None
+        race_quant_sampling_prop = None,
+        race_quant_sampling_size = None
     ):
 
         # make a two col pandas df of image number : label
@@ -133,27 +134,17 @@ class AffectNetCSVDataset(data.Dataset):
         if race_quant_sampling and race_quant_sampling_prop:
             assert(race_quant_sampling in self.data.race.unique())
             assert(isinstance(race_quant_sampling_prop, float))
+            assert(isinstance(race_quant_sampling_size, int))
 
-            if race_quant_sampling == "White":
-                # down sample white, keep all else
-                non_white = self.data[self.data.race != "White"]
-                num_non_white = len(non_white)
+            num_spec_race = np.floor(race_quant_sampling_prop * race_quant_sampling_size).astype(int)
+            spec_race = self.data[self.data.race == race_quant_sampling].sample(num_spec_race)
+            
 
-                num_white = np.floor((race_quant_sampling_prop*num_non_white) / (1-race_quant_sampling_prop)).astype(int)
-                white = self.data[self.data.race == "White"].sample(num_white)
-                self.data = pd.concat([white, non_white]).reset_index(drop = True)
+            num_others = (race_quant_sampling_size - num_spec_race).astype(int)
+            others = self.data[self.data.race != race_quant_sampling].sample(num_others)
+            self.data = pd.concat([spec_race, others]).reset_index(drop = True)
 
-                assert(np.isclose(num_white/len(self.data), race_quant_sampling_prop, atol = 1e-2))
-                
-            else:
-                spec_race = self.data[self.data.race == race_quant_sampling]
-                num_spec_race = len(spec_race)
-
-                num_others = np.floor((num_spec_race*(1-race_quant_sampling_prop))/race_quant_sampling_prop).astype(int)
-                others = self.data[self.data.race != race_quant_sampling].sample(num_others)
-                self.data = pd.concat([spec_race, others]).reset_index(drop = True)
-
-                assert(np.isclose(num_spec_race/len(self.data), race_quant_sampling_prop, atol = 1e-2))
+            assert(np.isclose(num_spec_race/len(self.data), race_quant_sampling_prop, atol = 1e-2))
 
 
     def __getitem__(self, index):
