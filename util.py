@@ -141,9 +141,16 @@ class AffectNetCSVDataset(data.Dataset):
             
 
             num_others = (race_quant_sampling_size - num_spec_race).astype(int)
-            others = self.data[self.data.race != race_quant_sampling].sample(num_others)
-            self.data = pd.concat([spec_race, others]).reset_index(drop = True)
 
+            # stratify sample the rest
+            num_other_races = len(self.data.race.unique()) - 1
+            others = self.data[self.data.race != race_quant_sampling].groupby('race').sample(num_others//num_other_races)
+            extra = pd.DataFrame()
+            if num_others - num_others//num_other_races != 0:
+                extra = self.data[(self.data.race != race_quant_sampling) & (~self.data.id.isin(others.id))].sample(num_others - others.shape[0])
+            self.data = pd.concat([spec_race, others, extra]).reset_index(drop = True)
+
+            print(self.data.race.value_counts(normalize = True))
             assert(np.isclose(num_spec_race/len(self.data), race_quant_sampling_prop, atol = 1e-2))
 
 
