@@ -131,27 +131,49 @@ class AffectNetCSVDataset(data.Dataset):
 
         self.label_weights = compute_class_weight(class_weight='balanced', classes= np.unique(self.data.label), y= np.array(self.data.label)) #? should we drop the .cpu() here?
 
+        # # does subsampling such that
+        # # race_quant_sampling_size = N = len(self.data)
+        # # spec_race_size = N*race_quant_sampling_prop
+        # # other_race_size(s) = N*((1-race_quant_sampling_prop) // (len(self.data.race.unique())-1)
+        # if race_quant_sampling is not None and race_quant_sampling_prop is not None and race_quant_sampling_size is not None:
+        #     assert(race_quant_sampling in self.data.race.unique())
+        #     assert(isinstance(race_quant_sampling_prop, float))
+        #     assert(isinstance(race_quant_sampling_size, int))
+
+        #     num_spec_race = np.floor(race_quant_sampling_prop * race_quant_sampling_size).astype(int)
+        #     spec_race = self.data[self.data.race == race_quant_sampling].sample(num_spec_race)
+            
+
+        #     num_others = (race_quant_sampling_size - num_spec_race).astype(int)
+
+        #     # stratify sample the rest
+        #     num_other_races = len(self.data.race.unique()) - 1
+        #     others = self.data[self.data.race != race_quant_sampling].groupby('race').sample(num_others//num_other_races)
+        #     extra = pd.DataFrame()
+        #     if num_others - num_others//num_other_races != 0:
+        #         extra = self.data[(self.data.race != race_quant_sampling) & (~self.data.id.isin(others.id))].sample(num_others - others.shape[0])
+        #     self.data = pd.concat([spec_race, others, extra]).reset_index(drop = True)
+
+        #     print(self.data.race.value_counts(normalize = True))
+        #     assert(np.isclose(num_spec_race/len(self.data), race_quant_sampling_prop, atol = 1e-2))
+
+        # does subsampling such that
+        # len(self.data) = (len(self.data.race.unique)-1)*N + N*race_quant_sampling_prop
+        # spec_race_size = N*race_quant_sampling_prop = race_quant_sampling_size*race_quant_sampling_prop
+        # other_race_size(s) = N = race_quant_sampling_size
+
         if race_quant_sampling is not None and race_quant_sampling_prop is not None and race_quant_sampling_size is not None:
             assert(race_quant_sampling in self.data.race.unique())
             assert(isinstance(race_quant_sampling_prop, float))
             assert(isinstance(race_quant_sampling_size, int))
 
-            num_spec_race = np.floor(race_quant_sampling_prop * race_quant_sampling_size).astype(int)
-            spec_race = self.data[self.data.race == race_quant_sampling].sample(num_spec_race)
-            
+            others = self.data[(self.data.race != race_quant_sampling)].groupby('race').sample(race_quant_sampling_size)
+            spec_race = self.data[self.data.race == race_quant_sampling].sample(int(race_quant_sampling_size*race_quant_sampling_prop))
 
-            num_others = (race_quant_sampling_size - num_spec_race).astype(int)
+            self.data = pd.concat([spec_race, others]).reset_index(drop = True)
 
-            # stratify sample the rest
-            num_other_races = len(self.data.race.unique()) - 1
-            others = self.data[self.data.race != race_quant_sampling].groupby('race').sample(num_others//num_other_races)
-            extra = pd.DataFrame()
-            if num_others - num_others//num_other_races != 0:
-                extra = self.data[(self.data.race != race_quant_sampling) & (~self.data.id.isin(others.id))].sample(num_others - others.shape[0])
-            self.data = pd.concat([spec_race, others, extra]).reset_index(drop = True)
-
+            print(self.data.race.value_counts())
             print(self.data.race.value_counts(normalize = True))
-            assert(np.isclose(num_spec_race/len(self.data), race_quant_sampling_prop, atol = 1e-2))
 
 
     def __getitem__(self, index):
