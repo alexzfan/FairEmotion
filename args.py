@@ -118,6 +118,7 @@ def add_common_args(parser):
                         default='./data/affectnet/val_set')
     parser.add_argument("--train_csv", type = str, default="./affectnet_train_filepath_full.csv")
     parser.add_argument("--val_csv", type = str, default="./affectnet_val_filepath_full.csv")
+    parser.add_argument("--affectnet_test_csv", type = str, default="./affectnet_test_filepath_full.csv")
     parser.add_argument('--cafe_train_csv',
                         type=str,
                         default='./cafe_train.csv')

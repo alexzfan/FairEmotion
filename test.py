@@ -14,7 +14,7 @@ import util
 
 from args import get_test_args
 from models import baseline_pretrain
-from util import AffectNetDataset, CAFEDataset
+from util import AffectNetCSVDataset, CAFEDataset
 from collections import OrderedDict
 from sklearn import metrics
 from tensorboardX import SummaryWriter
@@ -49,15 +49,26 @@ def main(args):
 
     # get data loader
     if(args.dataset == "cafe"):
-        test_dataset = CAFEDataset(args.cafe_test_csv, train = False, balance = False)
+        test_csv = args.cafe_test_csv
+        test_dataset = CAFEDataset(test_csv, train = False, balance = False)
         test_loader = data.DataLoader(test_dataset,
                                     batch_size=args.batch_size,
                                     shuffle=False,
                                     num_workers=args.num_workers)
+    elif(args.dataset == 'affectnet'):
+        # mainly for race bias quantifying
+        test_csv = args.affectnet_test_csv
+        test_dataset = AffectNetCSVDataset(test_csv, 
+                                            train = False, 
+                                            balance = False)
+        test_loader = data.DataLoader(test_dataset,
+                                    batch_size = args.batch_size,
+                                    shuffle = False,
+                                    num_workers = args.num_workers)
     else:
-        raise Exception("Model provided not valid")
+        raise Exception("Dataset provided not valid")
 
-    log.info(f"Evaluating on {args.cafe_test_csv} split...")
+    log.info(f"Evaluating on {test_csv} split...")
     nll_meter = util.AverageMeter()
 
     model = util.load_model(model, args.load_path, args.gpu_ids, return_step = False)
