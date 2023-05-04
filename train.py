@@ -98,6 +98,7 @@ def main(args):
         train_dataset = AffectNetCSVDataset(args.train_csv, 
                                             train = False, 
                                             balance = False,
+                                            seed = args.seed,
                                             race_quant_sampling = args.race_quant_sampling,
                                             race_quant_sampling_prop = args.race_quant_sampling_prop,
                                             race_quant_sampling_size = args.race_quant_sampling_size)

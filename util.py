@@ -1,8 +1,6 @@
 """
-Utility classes and methods for long covid classification
+Utility classes and methods for facial affect recognition
 """
-
-
 from copy import deepcopy
 import glob
 import logging
@@ -24,93 +22,6 @@ import matplotlib.pyplot as plt
 from collections import Counter
 from sklearn.utils.class_weight import compute_class_weight
 
-
-class AffectNetDataset(data.Dataset):
-    """
-    Preprocess and prepare data for feeding into NN
-    """
-    def __init__(
-        self,
-        data_dir,
-        train,
-        balance = None
-    ):
-
-        # make a two col pandas df of image number : label
-        self.data_dir = data_dir
-        self.train = train
-        annotations = glob.glob(os.path.join(data_dir, "annotations", "*_exp.npy"))
-
-        image_nums = []
-        labels = []
-        for annotation in annotations:
-            image_num = re.findall(r'(\d+)', str(annotation))[0]
-            label = np.load(annotation).item()
-
-            if label == '7':
-                continue
-
-            image_nums.append(image_num)
-            labels.append(label)
-        
-        self.data = pd.DataFrame({"image_num": image_nums, "label": labels})
-        self.data.label = self.data.label.astype(int)
-
-        if balance: # !ignore for now, not downsampling
-        
-
-            # downsample here
-            g = data.groupby(label, group_keys=False)
-            self.data = pd.DataFrame(g.apply(lambda x: x.sample(g.size().min()))).reset_index(drop=True)
-
-        self.label_weights = compute_class_weight(class_weight='balanced', classes= np.unique(labels), y= np.array(labels)) #? should we drop the .cpu() here?
-
-    def __getitem__(self, index):
-
-        # use the df to read in image for the given index
-        image_path = os.path.join(self.data_dir, "images", self.data.loc[index, "image_num"] + ".jpg")
-
-        image = Image.open(image_path).convert("RGB")
-
-        if self.train:
-            std_image = transforms.Compose(
-            [
-                transforms.ColorJitter(brightness=0.5, hue = 0.3),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=(0.485, 0.456, 0.406), 
-                    std=(0.229, 0.224, 0.225)
-                )
-            ]
-        )
-        else:
-            std_image = transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Normalize(                    
-                    mean=(0.485, 0.456, 0.406), 
-                    std=(0.229, 0.224, 0.225)
-                    )
-                ]
-            )
-        image = std_image(image)
-        assert(image.shape == (3, 224, 224))
-
-        label = self.data.loc[index, "label"]
-        image_num = self.data.loc[index, 'image_num']
-        example = (
-            image_num,
-            image,
-            label
-        )
-
-        return example
-
-    def __len__(self):
-
-        return len(self.data)
-
 class AffectNetCSVDataset(data.Dataset):
     """
     Preprocess and prepare data for feeding into NN
@@ -120,6 +31,7 @@ class AffectNetCSVDataset(data.Dataset):
         data_csv,
         train,
         balance = None,
+        seed = None,
         race_quant_sampling = None,
         race_quant_sampling_prop = None,
         race_quant_sampling_size = None
@@ -131,7 +43,7 @@ class AffectNetCSVDataset(data.Dataset):
 
         self.label_weights = compute_class_weight(class_weight='balanced', classes= np.unique(self.data.label), y= np.array(self.data.label)) #? should we drop the .cpu() here?
 
-        # # does subsampling such that
+        # # does subsampling v2 such that
         # # race_quant_sampling_size = N = len(self.data)
         # # spec_race_size = N*race_quant_sampling_prop
         # # other_race_size(s) = N*((1-race_quant_sampling_prop) // (len(self.data.race.unique())-1)
@@ -157,7 +69,7 @@ class AffectNetCSVDataset(data.Dataset):
         #     print(self.data.race.value_counts(normalize = True))
         #     assert(np.isclose(num_spec_race/len(self.data), race_quant_sampling_prop, atol = 1e-2))
 
-        # does subsampling such that
+        # does subsampling v3 such that
         # len(self.data) = (len(self.data.race.unique)-1)*N + N*race_quant_sampling_prop
         # spec_race_size = N*race_quant_sampling_prop = race_quant_sampling_size*race_quant_sampling_prop
         # other_race_size(s) = N = race_quant_sampling_size
@@ -167,10 +79,14 @@ class AffectNetCSVDataset(data.Dataset):
             assert(isinstance(race_quant_sampling_prop, float))
             assert(isinstance(race_quant_sampling_size, int))
 
-            others = self.data[(self.data.race != race_quant_sampling)].groupby('race').sample(race_quant_sampling_size)
-            spec_race = self.data[self.data.race == race_quant_sampling].sample(int(race_quant_sampling_size*race_quant_sampling_prop))
+            if seed is None:
+                seed = 0
+                
+            others = self.data[(self.data.race != race_quant_sampling)].groupby('race').sample(race_quant_sampling_size, random_state = seed)
+            spec_race = self.data[self.data.race == race_quant_sampling].sample(int(race_quant_sampling_size*race_quant_sampling_prop), random_state = seed)
 
             self.data = pd.concat([spec_race, others]).reset_index(drop = True)
+            self.label_weights = compute_class_weight(class_weight='balanced', classes= np.unique(self.data.label), y= np.array(self.data.label)) #? should we drop the .cpu() here?
 
             print(self.data.race.value_counts())
             print(self.data.race.value_counts(normalize = True))
@@ -232,7 +148,11 @@ class CAFEDataset(data.Dataset):
         self,
         data_csv,
         train,
-        balance = None
+        balance = None,
+        seed = None,
+        race_quant_sampling = None,
+        race_quant_sampling_prop = None,
+        race_quant_sampling_size = None
     ):
 
         # make a two col pandas df of image number : label
@@ -241,10 +161,34 @@ class CAFEDataset(data.Dataset):
         self.train = train
         
         self.data = pd.read_csv(data_csv)
+        self.data['Participant_v2'] = self.data.Participant.str.extract('((M|F)\-\w{2}\-\d{2})')[0]
         self.data.label = self.data.label.astype(int)
         self.labels = self.data.label.tolist()
 
         self.label_weights = compute_class_weight(class_weight='balanced', classes= np.unique(self.labels), y= np.array(self.labels)) #? should we drop the .cpu() here?
+
+
+        if race_quant_sampling is not None and race_quant_sampling_prop is not None and race_quant_sampling_size is not None:
+            # stratify race sample by the participant
+            assert(race_quant_sampling in self.data.race.unique())
+            assert(isinstance(race_quant_sampling_prop, float))
+            assert(isinstance(race_quant_sampling_size, int))
+
+            if seed is None:
+                seed = 0
+            
+            sampled_participants = cafe[['Participant_v2', 'Race/Ethnicity']].drop_duplicates().groupby("Race/Ethnicity").sample(race_quant_sampling_size, random_state = seed)
+
+            others = self.data[(self.data['Race/Ethnicity'] != race_quant_sampling)].groupby('Race/Ethnicity').sample(race_quant_sampling_size)
+            spec_race = self.data[self.data['Race/Ethnicity'] == race_quant_sampling].sample(int(race_quant_sampling_size*race_quant_sampling_prop))
+
+            self.data = pd.concat([spec_race, others]).reset_index(drop = True)
+            self.labels = self.data.label.tolist()
+
+            self.label_weights = compute_class_weight(class_weight='balanced', classes= np.unique(self.labels), y= np.array(self.labels)) #? should we drop the .cpu() here?
+            print(self.data['Race/Ethnicity'].value_counts())
+            print(self.data['Race/Ethnicity'].value_counts(normalize = True))
+
 
     def __getitem__(self, index):
 
@@ -256,8 +200,8 @@ class CAFEDataset(data.Dataset):
         if self.train:
             std_image = transforms.Compose(
             [
-                transforms.ColorJitter(brightness=0.5, hue = 0.3),
-                transforms.RandomHorizontalFlip(),
+                # transforms.ColorJitter(brightness=0.5, hue = 0.3),
+                # transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Resize((224,224)),
                 transforms.Normalize(
@@ -659,3 +603,89 @@ def acc_score(logits, labels):
 #         return [default_collate(samples) for samples in transposed]
 
 #     raise TypeError((error_msg.format(type(batch[0]))))
+
+class AffectNetDataset(data.Dataset):
+    """
+    Preprocess and prepare data for feeding into NN
+    """
+    def __init__(
+        self,
+        data_dir,
+        train,
+        balance = None
+    ):
+
+        # make a two col pandas df of image number : label
+        self.data_dir = data_dir
+        self.train = train
+        annotations = glob.glob(os.path.join(data_dir, "annotations", "*_exp.npy"))
+
+        image_nums = []
+        labels = []
+        for annotation in annotations:
+            image_num = re.findall(r'(\d+)', str(annotation))[0]
+            label = np.load(annotation).item()
+
+            if label == '7':
+                continue
+
+            image_nums.append(image_num)
+            labels.append(label)
+        
+        self.data = pd.DataFrame({"image_num": image_nums, "label": labels})
+        self.data.label = self.data.label.astype(int)
+
+        if balance: # !ignore for now, not downsampling
+        
+
+            # downsample here
+            g = data.groupby(label, group_keys=False)
+            self.data = pd.DataFrame(g.apply(lambda x: x.sample(g.size().min()))).reset_index(drop=True)
+
+        self.label_weights = compute_class_weight(class_weight='balanced', classes= np.unique(labels), y= np.array(labels)) #? should we drop the .cpu() here?
+
+    def __getitem__(self, index):
+
+        # use the df to read in image for the given index
+        image_path = os.path.join(self.data_dir, "images", self.data.loc[index, "image_num"] + ".jpg")
+
+        image = Image.open(image_path).convert("RGB")
+
+        if self.train:
+            std_image = transforms.Compose(
+            [
+                transforms.ColorJitter(brightness=0.5, hue = 0.3),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=(0.485, 0.456, 0.406), 
+                    std=(0.229, 0.224, 0.225)
+                )
+            ]
+        )
+        else:
+            std_image = transforms.Compose(
+                [
+                    transforms.ToTensor(),
+                    transforms.Normalize(                    
+                    mean=(0.485, 0.456, 0.406), 
+                    std=(0.229, 0.224, 0.225)
+                    )
+                ]
+            )
+        image = std_image(image)
+        assert(image.shape == (3, 224, 224))
+
+        label = self.data.loc[index, "label"]
+        image_num = self.data.loc[index, 'image_num']
+        example = (
+            image_num,
+            image,
+            label
+        )
+
+        return example
+
+    def __len__(self):
+
+        return len(self.data)
