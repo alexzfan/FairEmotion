@@ -283,11 +283,12 @@ class CAFEDataset(data.Dataset):
 
         label = self.data.loc[index, "label"]
         internal_id = self.data.loc[index, 'Internal_id']
-
+        race = self.data.loc[index, 'Race/Ethnicity']
         example = (
             internal_id,
             image,
-            label
+            label,
+            race
         )
 
         return example
