@@ -96,7 +96,7 @@ def main(args):
     log.info("Building dataset....")
     if(args.dataset == "affectnet"):
         train_dataset = AffectNetCSVDataset(args.train_csv, 
-                                            train = False, 
+                                            train = False, # only really used for augs, but for now don't aug
                                             balance = False,
                                             seed = args.seed,
                                             race_quant_sampling = args.race_quant_sampling,
@@ -112,17 +112,22 @@ def main(args):
                                     shuffle=False,
                                     num_workers=args.num_workers)
     elif(args.dataset == "cafe"):
-        raise Exception("do not finetune on cafe")
-        # train_dataset = CAFEDataset(args.cafe_train_csv, train = True, balance = False)
-        # train_loader = data.DataLoader(train_dataset,
-        #                             batch_size=args.batch_size,
-        #                             shuffle=True,
-        #                             num_workers=args.num_workers)
-        # dev_dataset = CAFEDataset(args.cafe_val_csv, train = False, balance = False)
-        # dev_loader = data.DataLoader(dev_dataset,
-        #                             batch_size=args.batch_size,
-        #                             shuffle=False,
-        #                             num_workers=args.num_workers)
+        train_dataset = CAFEDataset(args.cafe_train_csv, 
+                                    train = False, 
+                                    balance = False,
+                                    seed = args.seed,
+                                    race_quant_sampling = args.cafe_race_quant_sampling,
+                                    race_quant_sampling_prop = args.race_quant_sampling_prop,
+                                    race_quant_sampling_size = args.race_quant_sampling_size)
+        train_loader = data.DataLoader(train_dataset,
+                                    batch_size=args.batch_size,
+                                    shuffle=True,
+                                    num_workers=args.num_workers)
+        dev_dataset = CAFEDataset(args.cafe_val_csv, train = False, balance = False)
+        dev_loader = data.DataLoader(dev_dataset,
+                                    batch_size=args.batch_size,
+                                    shuffle=False,
+                                    num_workers=args.num_workers)
     else:
         raise Exception("Dataset provided not valid")
     # Start training

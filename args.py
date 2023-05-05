@@ -82,6 +82,11 @@ def get_train_args():
                         default = None,
                         choices=("White","Latino_Hispanic", "Black", "Middle Eastern", "East Asian", "Indian", "Southeast Asian"),
                         help='Race to maintain certain proportion when testing bias quantification')
+    parser.add_argument('--cafe_race_quant_sampling',
+                        type=str,
+                        default = None,
+                        choices=("European American","African American", "Latino", "Asian"),
+                        help='Race to maintain certain proportion when testing bias quantification')
     parser.add_argument('--race_quant_sampling_prop',
                         type = float_range(0,2),
                         default = None,

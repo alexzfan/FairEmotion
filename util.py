@@ -81,7 +81,7 @@ class AffectNetCSVDataset(data.Dataset):
 
             if seed is None:
                 seed = 0
-                
+
             others = self.data[(self.data.race != race_quant_sampling)].groupby('race').sample(race_quant_sampling_size, random_state = seed)
             spec_race = self.data[self.data.race == race_quant_sampling].sample(int(race_quant_sampling_size*race_quant_sampling_prop), random_state = seed)
 
@@ -170,17 +170,21 @@ class CAFEDataset(data.Dataset):
 
         if race_quant_sampling is not None and race_quant_sampling_prop is not None and race_quant_sampling_size is not None:
             # stratify race sample by the participant
+            # race quant sampling size should be 5 for 5 participants
             assert(race_quant_sampling in self.data.race.unique())
             assert(isinstance(race_quant_sampling_prop, float))
             assert(isinstance(race_quant_sampling_size, int))
 
             if seed is None:
                 seed = 0
+            all_others = self.data[self.data['Race/Ethnicity'] != race_quant_sampling].reset_index(drop = True)
+            all_spec_race = self.data[self.data['Race/Ethnicity'] == race_quant_sampling].reset_index(drop = True)
             
-            sampled_participants = cafe[['Participant_v2', 'Race/Ethnicity']].drop_duplicates().groupby("Race/Ethnicity").sample(race_quant_sampling_size, random_state = seed)
+            sampled_other_participants = all_others[['Participant_v2', 'Race/Ethnicity']].drop_duplicates().groupby("Race/Ethnicity").sample(race_quant_sampling_size, random_state = seed)
+            sampled_spec_race_participants = all_spec_race[['Participant_v2', 'Race/Ethnicity']].drop_duplicates().groupby("Race/Ethnicity").sample(int(race_quant_sampling_size*race_quant_sampling_prop), random_state = seed)
 
-            others = self.data[(self.data['Race/Ethnicity'] != race_quant_sampling)].groupby('Race/Ethnicity').sample(race_quant_sampling_size)
-            spec_race = self.data[self.data['Race/Ethnicity'] == race_quant_sampling].sample(int(race_quant_sampling_size*race_quant_sampling_prop))
+            others = all_others[(all_others['Participant_v2'].isin(sampled_other_participants['Participant_v2']))]
+            spec_race = all_spec_race[(all_spec_race['Participant_v2'].isin(sampled_spec_race_participants['Participant_v2']))]
 
             self.data = pd.concat([spec_race, others]).reset_index(drop = True)
             self.labels = self.data.label.tolist()
