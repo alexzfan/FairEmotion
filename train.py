@@ -207,7 +207,12 @@ def evaluate(args, model, data_loader, device):
     pred_dict = {} # id, prob and prediction
     full_labels = []
     predictions = []
-    race_labs = data_loader.dataset.data['race']
+    if args.dataset == 'affectnet':
+        race_labs = data_loader.dataset.data['race']
+    elif args.dataset == 'cafe':
+        race_labs = data_loader.dataset.data['Race/Ethnictiy']
+    else:
+        raise Exception("invalid dataset")
     test = []
 
     acc = 0
