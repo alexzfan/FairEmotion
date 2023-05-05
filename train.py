@@ -210,7 +210,7 @@ def evaluate(args, model, data_loader, device):
     if args.dataset == 'affectnet':
         race_labs = data_loader.dataset.data['race']
     elif args.dataset == 'cafe':
-        race_labs = data_loader.dataset.data['Race/Ethnictiy']
+        race_labs = data_loader.dataset.data['Race/Ethnicity']
     else:
         raise Exception("invalid dataset")
     test = []
