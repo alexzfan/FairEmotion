@@ -171,7 +171,7 @@ class CAFEDataset(data.Dataset):
         if race_quant_sampling is not None and race_quant_sampling_prop is not None and race_quant_sampling_size is not None:
             # stratify race sample by the participant
             # race quant sampling size should be 5 for 5 participants
-            assert(race_quant_sampling in self.data.race.unique())
+            assert(race_quant_sampling in self.data['Race/Ethnicity'].unique())
             assert(isinstance(race_quant_sampling_prop, float))
             assert(isinstance(race_quant_sampling_size, int))
 
