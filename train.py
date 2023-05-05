@@ -275,11 +275,11 @@ def evaluate(args, model, data_loader, device):
                                             y_pred = y_pred_converted,
                                             sensitive_features = race_labs
                                             )
-
-            # eq_odds_ratio += weight*equalized_odds_ratio(y_true = y_true_converted,
-            #                                             y_pred = y_pred_converted,
-            #                                             sensitive_features = race_labs,
-            #                                             )
+            if args.dataset != "cafe":
+                eq_odds_ratio += weight*equalized_odds_ratio(y_true = y_true_converted,
+                                                        y_pred = y_pred_converted,
+                                                        sensitive_features = race_labs,
+                                                        )
     
 
     model.train()
