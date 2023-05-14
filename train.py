@@ -257,10 +257,7 @@ def evaluate(args, model, data_loader, device):
         y = np.asarray([label.cpu() for label in full_labels]).astype(int)
         f1 = metrics.f1_score(y, y_pred, average = 'weighted')
 
-        # dem parity ratio
-        fairlearn_dem_parity_ratio = demographic_parity_ratio(y_true = y, 
-                                                    y_pred = y_pred, 
-                                                    sensitive_features = race_labs)
+        
 
         # weighted OVO fairness metrics
         truth_sample_size_weights = pd.Series(y).value_counts(normalize = True).sort_index().tolist()
@@ -268,7 +265,13 @@ def evaluate(args, model, data_loader, device):
 
         dem_parity_ratio = 0
         eq_odds_ratio = 0
+
+        # dem parity ratio
+        fairlearn_dem_parity_ratio = 0
         if args.dataset != "cafe":
+            fairlearn_dem_parity_ratio = demographic_parity_ratio(y_true = y, 
+                                                        y_pred = y_pred, 
+                                                        sensitive_features = race_labs)
             for i, weight in enumerate(truth_sample_size_weights):
                 y_true_converted = [1 if j == i else 0 for j in y]
                 y_pred_converted = [1 if j == i else 0 for j in y_pred]
