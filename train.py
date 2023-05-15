@@ -268,22 +268,22 @@ def evaluate(args, model, data_loader, device):
 
         # dem parity ratio
         fairlearn_dem_parity_ratio = 0
-        if args.dataset != "cafe":
-            fairlearn_dem_parity_ratio = demographic_parity_ratio(y_true = y, 
-                                                        y_pred = y_pred, 
-                                                        sensitive_features = race_labs)
-            for i, weight in enumerate(truth_sample_size_weights):
-                y_true_converted = [1 if j == i else 0 for j in y]
-                y_pred_converted = [1 if j == i else 0 for j in y_pred]
-                dem_parity_ratio += weight*demographic_parity_ratio(y_true = y_true_converted, 
-                                                y_pred = y_pred_converted,
-                                                sensitive_features = race_labs
-                                                )
+        # if args.dataset != "cafe":
+        #     fairlearn_dem_parity_ratio = demographic_parity_ratio(y_true = y, 
+        #                                                 y_pred = y_pred, 
+        #                                                 sensitive_features = race_labs)
+        #     for i, weight in enumerate(truth_sample_size_weights):
+        #         y_true_converted = [1 if j == i else 0 for j in y]
+        #         y_pred_converted = [1 if j == i else 0 for j in y_pred]
+        #         dem_parity_ratio += weight*demographic_parity_ratio(y_true = y_true_converted, 
+        #                                         y_pred = y_pred_converted,
+        #                                         sensitive_features = race_labs
+        #                                         )
                 
-                eq_odds_ratio += weight*equalized_odds_ratio(y_true = y_true_converted,
-                                                        y_pred = y_pred_converted,
-                                                        sensitive_features = race_labs,
-                                                        )
+        #         eq_odds_ratio += weight*equalized_odds_ratio(y_true = y_true_converted,
+        #                                                 y_pred = y_pred_converted,
+        #                                                 sensitive_features = race_labs,
+        #                                                 )
     
 
     model.train()
